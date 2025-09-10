@@ -1,13 +1,16 @@
 """
 title: Postgres Database Tool
-author: Joshua Rudy
+author: Juan Concha (adapted from Joshua Rudy)
 version: 0.0.1
 license: MIT
 description: A simple tool for interacting with a PostgreSQL database. Ask the model questions and it will take the request
 and pass it as an API call to Ollama to generate a SQL query before executing the query using psycopg2. 
-There are no safe guards in place. Caution should be exercised. Use an adjust as you need. 
+Added safe guards with query validations. Caution should be exercised anyways. Use an adjust as you need. 
 I want to take the DB_CONFIG and make it global, it's unnecessary to define twice, but it works for now.
 I intend to take this and work it into a filter function or pipe for RAG and general DB interaction.
+
+This version hardcodes the database schema in the prompt. Could be moved to the system prompt, but haven't
+tested performance in that case.
 
 Adapted for docker environment with:
 - toydb database
@@ -333,8 +336,12 @@ class Tools:
                     rows = cur.fetchall()
 
                     # Get column names for formatting results
-                    column_names = [desc[0] for desc in cur.description]
-                    results = [dict(zip(column_names, row)) for row in rows]
+                    if cur.description is not None:
+                        column_names = [desc[0] for desc in cur.description]
+                        results = [dict(zip(column_names, row)) for row in rows]
+                    else:
+                        # This should never happen after a successful execute, but satisfies type checker
+                        results = [list(row) for row in rows]
 
                     formatted_results = json.dumps(results, indent=2, default=str)
 
