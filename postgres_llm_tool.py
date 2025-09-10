@@ -97,7 +97,7 @@ class EventEmitter:
 
 
 # Allowed tables in your database schema
-ALLOWED_TABLES = ["users", "categories", "products", "orders", "order_items"]
+ALLOWED_TABLES = ["users", "categories", "products", "orders", "order_items", "ene_prueba_inicial"]
 
 
 class Tools:
@@ -169,6 +169,7 @@ class Tools:
         - products (id, name, description, price, category_id, created_at)
         - orders (id, user_id, total_amount, status, order_date)
         - order_items (id, order_id, product_id, quantity, unit_price)
+        - ene_prueba_inicial (indicador, anio, trimestre, valor, mes_string, mes, fecha)
 
         Available tables: {", ".join(ALLOWED_TABLES)}
         User Query: {natural_language_query}
