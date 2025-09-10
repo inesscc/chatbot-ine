@@ -10,3 +10,5 @@ wheels/
 .venv
 .vscode
 .env
+.webui_secret_key
+data/
