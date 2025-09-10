@@ -1,0 +1,45 @@
+
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:ollama
+    container_name: open-webui
+    ports:
+      - "3030:8080"
+    volumes:
+      - open-webui:/app/backend/data
+      - ollama:/root/.ollama
+    restart: always
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    depends_on:
+      - db
+    environment:
+      # Example environment vars for connecting to Postgres
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: toydb
+      POSTGRES_USER: toyuser
+      POSTGRES_PASSWORD: toypass
+
+  db:
+    image: postgres:16
+    container_name: toy-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: toydb
+      POSTGRES_USER: toyuser
+      POSTGRES_PASSWORD: toypass
+    ports:
+      - "5438:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d:ro
+volumes:
+  open-webui:
+  ollama:
+  pgdata:
