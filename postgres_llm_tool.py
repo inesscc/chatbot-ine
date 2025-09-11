@@ -44,7 +44,10 @@ def validate_sql(sql_query: str, allowed_tables=None, max_limit=100) -> str:
     """
     
     sql = sql_query.strip().rstrip(";")  # remove trailing semicolon
-
+    sql = re.sub(r'<think>\n.*?</think>(\n+)?', '', sql, flags=re.DOTALL)  # remove <think>...</think> blocks
+    print('DEBUG: Validating SQL query:')
+    print(f'{sql=}')
+    print('-----------------------------------------------')
     # Must start with SELECT
     if not sql.upper().startswith("SELECT"):
         raise ValueError("Only SELECT queries are allowed")
