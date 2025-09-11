@@ -100,7 +100,7 @@ class EventEmitter:
 
 
 # Allowed tables in your database schema
-ALLOWED_TABLES = ["users", "categories", "products", "orders", "order_items", "ene_prueba_inicial"]
+ALLOWED_TABLES = ["ene_prueba_inicial"]
 
 
 class Tools:
@@ -167,12 +167,30 @@ class Tools:
         Convert the following natural language query into an SQL command.
 
         Database Schema:
-        - users (id, username, email, first_name, last_name, created_at)
-        - categories (id, name, description)  
-        - products (id, name, description, price, category_id, created_at)
-        - orders (id, user_id, total_amount, status, order_date)
-        - order_items (id, order_id, product_id, quantity, unit_price)
         - ene_prueba_inicial (indicador, anio, trimestre, valor, mes_string, mes, fecha)
+        
+        Table Context:
+        The ene_prueba_inicial table contains Chilean employment survey data with the following structure:
+        
+        Sample data (first 2 rows):
+        indicador: tasa_desocupacion, anio: 2010, trimestre: Ene - Mar, valor: 9.227598063619205, mes_string: ene, mes: 1, fecha: 2010-1
+        indicador: tasa_desocupacion, anio: 2010, trimestre: Feb - Abr, valor: 8.836054099283027, mes_string: feb, mes: 2, fecha: 2010-2
+        
+        Available indicators (unique values in 'indicador' column):
+        - tasa_desocupacion (unemployment rate)
+        - tasa_ocupacion (employment rate) 
+        - tasa_participacion (participation rate)
+        - personas_fuerza_trabajo (people in workforce)
+        - poblacion_edad_trabajar (working age population)
+        
+        Column descriptions:
+        - indicador: type of employment metric
+        - anio: year
+        - trimestre: quarter period (e.g., "Ene - Mar" for Jan-Mar)
+        - valor: numerical value of the indicator
+        - mes_string: month name in Spanish
+        - mes: month number (1-12)
+        - fecha: date in YYYY-M format
 
         Available tables: {", ".join(ALLOWED_TABLES)}
         User Query: {natural_language_query}
