@@ -100,7 +100,7 @@ class EventEmitter:
 
 
 # Allowed tables in your database schema
-ALLOWED_TABLES = ["ene_prueba_inicial"]
+ALLOWED_TABLES = ["ene_prueba_inicial", "ene_sexo_prueba_inicial"]
 
 
 class Tools:
@@ -167,30 +167,55 @@ class Tools:
         Convert the following natural language query into an SQL command.
 
         Database Schema:
-        - ene_prueba_inicial (indicador, anio, trimestre, valor, mes_string, mes, fecha)
-        
+
+        Table 1: ene_prueba_inicial
+        Columns: (indicador, anio, trimestre, valor, mes_string, mes, fecha)
+
         Table Context:
-        The ene_prueba_inicial table contains Chilean employment survey data with the following structure:
-        
+        Contains Chilean employment survey data aggregated by time period (monthly/quarterly).
+
         Sample data (first 2 rows):
         indicador: tasa_desocupacion, anio: 2010, trimestre: Ene - Mar, valor: 9.227598063619205, mes_string: ene, mes: 1, fecha: 2010-1
         indicador: tasa_desocupacion, anio: 2010, trimestre: Feb - Abr, valor: 8.836054099283027, mes_string: feb, mes: 2, fecha: 2010-2
-        
-        Available indicators (unique values in 'indicador' column):
-        - tasa_desocupacion (unemployment rate)
-        - tasa_ocupacion (employment rate) 
-        - tasa_participacion (participation rate)
-        - personas_fuerza_trabajo (people in workforce)
-        - poblacion_edad_trabajar (working age population)
-        
+
         Column descriptions:
-        - indicador: type of employment metric
+        - indicador: type of employment metric (see available indicators below)
         - anio: year
         - trimestre: quarter period (e.g., "Ene - Mar" for Jan-Mar)
         - valor: numerical value of the indicator
         - mes_string: month name in Spanish
         - mes: month number (1-12)
         - fecha: date in YYYY-M format
+
+        Table 2: ene_sexo_prueba_inicial
+        Columns: (indicador, anio, sexo, valor)
+
+        Table Context:
+        Contains Chilean employment survey data disaggregated by sex (gender).
+        Same employment indicators as ene_prueba_inicial but broken down by male/female.
+
+        Sample data (first 2 rows):
+        indicador: tasa_participacion, anio: 2010, sexo: hombre, valor: 70.5
+        indicador: tasa_participacion, anio: 2010, sexo: mujer, valor: 42.3
+
+        Column descriptions:
+        - indicador: type of employment metric (see available indicators below)
+        - anio: year
+        - sexo: sex/gender ("hombre" for male, "mujer" for female)
+        - valor: numerical value of the indicator
+
+        Available indicators (applies to both tables):
+        - tasa_desocupacion (unemployment rate)
+        - tasa_ocupacion (employment rate)
+        - tasa_participacion (participation rate)
+        - personas_fuerza_trabajo (people in workforce)
+        - poblacion_edad_trabajar (working age population)
+
+        Query Guidelines:
+        - Use ene_prueba_inicial for time-series analysis (trends over months/quarters)
+        - Use ene_sexo_prueba_inicial for gender-based comparisons
+        - Both tables can be joined on (indicador, anio) if comparing aggregated vs. disaggregated data
+        - When querying by sex, use exact values "hombre" or "mujer"
 
         Available tables: {", ".join(ALLOWED_TABLES)}
         User Query: {natural_language_query}

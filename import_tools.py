@@ -228,7 +228,7 @@ def import_models_from_json(json_file_path, db_path):
 
 if __name__ == "__main__":
     # Default paths
-    tools_json = "/app/tools-export.json"
+    tools_json = "/app/postgres-tool-export.json"
     models_json = "/app/models-export.json"
     db_file = "/app/backend/data/webui.db"
     

@@ -3,7 +3,7 @@ FROM ghcr.io/open-webui/open-webui:ollama
 # Copy the import script, startup script, and export files
 COPY import_tools.py /app/import_tools.py
 COPY start_with_tools.sh /app/start_with_tools.sh
-COPY tools-export.json /app/tools-export.json
+COPY postgres-tool-export.json /app/postgres-tool-export.json
 COPY models-export.json /app/models-export.json
 
 # Make scripts executable
