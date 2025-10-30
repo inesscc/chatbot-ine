@@ -4,8 +4,8 @@ author: Juan Concha (adapted from Joshua Rudy)
 version: 0.0.1
 license: MIT
 description: A simple tool for interacting with a PostgreSQL database. Ask the model questions and it will take the request
-and pass it as an API call to Ollama to generate a SQL query before executing the query using psycopg2. 
-Added safe guards with query validations. Caution should be exercised anyways. Use an adjust as you need. 
+and pass it as an API call to Ollama to generate a SQL query before executing the query using psycopg2.
+Added safe guards with query validations. Caution should be exercised anyways. Use an adjust as you need.
 I want to take the DB_CONFIG and make it global, it's unnecessary to define twice, but it works for now.
 I intend to take this and work it into a filter function or pipe for RAG and general DB interaction.
 
@@ -27,33 +27,48 @@ import requests
 import asyncio
 import psycopg2
 
+
 def validate_sql(sql_query: str, allowed_tables=None, max_limit=100) -> str:
     """
     Validate and sanitize an SQL query before execution.
-    
+
     - Only allows SELECT queries
     - Blocks access to system tables/functions
     - Ensures only whitelisted tables are queried
     - Forces a LIMIT if not present
-    
+
     :param sql_query: SQL string from the LLM
     :param allowed_tables: list of allowed table names (default: None = allow all)
     :param max_limit: max number of rows to allow in results
     :return: safe SQL query (possibly modified with LIMIT)
     :raises ValueError: if query is unsafe
     """
-    
+
     sql = sql_query.strip().rstrip(";")  # remove trailing semicolon
-    sql = re.sub(r'<think>\n.*?</think>(\n+)?', '', sql, flags=re.DOTALL)  # remove <think>...</think> blocks
-    print('DEBUG: Validating SQL query:')
-    print(f'{sql=}')
-    print('-----------------------------------------------')
+    sql = re.sub(
+        r"<think>\n.*?</think>(\n+)?", "", sql, flags=re.DOTALL
+    )  # remove <think>...</think> blocks
+    print("DEBUG: Validating SQL query:")
+    print(f"{sql=}")
+    print("-----------------------------------------------")
     # Must start with SELECT
     if not sql.upper().startswith("SELECT"):
         raise ValueError("Only SELECT queries are allowed")
 
     # Block dangerous keywords/functions
-    forbidden = [";", "--", "pg_", "information_schema", "COPY", "ALTER", "DROP", "INSERT", "UPDATE", "DELETE", "SET"]
+    forbidden = [
+        ";",
+        "--",
+        "pg_",
+        "information_schema",
+        "COPY",
+        "ALTER",
+        "DROP",
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "SET",
+    ]
     for word in forbidden:
         if re.search(rf"\b{word}\b", sql, flags=re.IGNORECASE):
             raise ValueError(f"Forbidden keyword detected: {word}")
@@ -115,20 +130,20 @@ class Tools:
         configs = [
             {
                 "dbname": "toydb",
-                "user": "readonly_user", 
+                "user": "readonly_user",
                 "password": "readonly_password",
                 "host": "toy-postgres",  # Container name
-                "port": "5432",          # Internal container port
+                "port": "5432",  # Internal container port
             },
             {
                 "dbname": "toydb",
-                "user": "readonly_user", 
+                "user": "readonly_user",
                 "password": "readonly_password",
-                "host": "localhost",     # External host
-                "port": "5438",          # Mapped port
-            }
+                "host": "localhost",  # External host
+                "port": "5438",  # Mapped port
+            },
         ]
-        
+
         for config in configs:
             try:
                 # Test connection
@@ -137,13 +152,13 @@ class Tools:
                     user=config["user"],
                     password=config["password"],
                     host=config["host"],
-                    port=config["port"]
+                    port=config["port"],
                 )
                 conn.close()
                 return config
             except Exception:
                 continue
-        
+
         # If all fail, return the localhost config as default
         return configs[1]
 
@@ -160,7 +175,7 @@ class Tools:
         :return: The generated SQL query as a string.
         """
         emitter = EventEmitter(__event_emitter__)
-        
+
         # Enhanced prompt with your database schema information
         prompt = f"""
         You are an assistant that converts natural language into SQL commands.
@@ -214,7 +229,7 @@ class Tools:
         Query Guidelines:
         - Use ene_prueba_inicial for time-series analysis (trends over months/quarters)
         - Use ene_sexo_prueba_inicial for gender-based comparisons
-        - Both tables can be joined on (indicador, anio) if comparing aggregated vs. disaggregated data
+        - NEVER use aggregating functions like SUM or COUNT
         - When querying by sex, use exact values "hombre" or "mujer"
 
         Available tables: {", ".join(ALLOWED_TABLES)}
@@ -357,6 +372,7 @@ class Tools:
             sql_query = await self.instruct_llm_to_generate_sql(
                 natural_language_query, __event_emitter__
             )
+            print(f"DEBUG: Generated SQL Query:\n{sql_query} -------------------------")
 
             if not sql_query:
                 raise ValueError("Generated SQL query is empty.")
@@ -374,11 +390,13 @@ class Tools:
                 user=db_config["user"],
                 password=db_config["password"],
                 host=db_config["host"],
-                port=db_config["port"]
+                port=db_config["port"],
             ) as conn:
                 with conn.cursor() as cur:
                     # Use your database's allowed tables
-                    safe_query = validate_sql(sql_query, allowed_tables=ALLOWED_TABLES, max_limit=100)
+                    safe_query = validate_sql(
+                        sql_query, allowed_tables=ALLOWED_TABLES, max_limit=100
+                    )
                     cur.execute(safe_query)
                     rows = cur.fetchall()
 
@@ -415,7 +433,7 @@ class Tools:
 async def test_tool():
     """Test the database tool with sample queries"""
     tool = Tools()
-    
+
     # Test queries
     test_queries = [
         "Show me all users",
@@ -423,7 +441,7 @@ async def test_tool():
         "Show me products with their categories",
         "How many orders are there?",
     ]
-    
+
     for query in test_queries:
         print(f"\n--- Testing: {query} ---")
         result = await tool.execute_query(query)
