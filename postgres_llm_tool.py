@@ -186,14 +186,22 @@ class Tools:
         Table 1: ene_prueba_inicial
         Columns: (indicador, anio, trimestre, valor, mes_string, mes, fecha)
 
+
+        Table 1: ene_prueba_inicial
+        Columns: (indicador, anio, trimestre, valor, mes_string, mes, fecha)
+
         Table Context:
+        Contains Chilean employment survey data aggregated by time period (monthly/quarterly).
+
         Contains Chilean employment survey data aggregated by time period (monthly/quarterly).
 
         Sample data (first 2 rows):
         indicador: tasa_desocupacion, anio: 2010, trimestre: Ene - Mar, valor: 9.227598063619205, mes_string: ene, mes: 1, fecha: 2010-1
         indicador: tasa_desocupacion, anio: 2010, trimestre: Feb - Abr, valor: 8.836054099283027, mes_string: feb, mes: 2, fecha: 2010-2
 
+
         Column descriptions:
+        - indicador: type of employment metric (see available indicators below)
         - indicador: type of employment metric (see available indicators below)
         - anio: year
         - trimestre: quarter period (e.g., "Ene - Mar" for Jan-Mar)
