@@ -16,7 +16,7 @@ sleep 10
 
 # Import tools and models if the export files exist
 echo "🔧 Importing tools and models from export files..."
-python3 /app/import_tools.py /app/tools-export.json /app/models-export.json /app/backend/data/webui.db
+python3 /app/import_tools.py /app/postgres-tool-export.json /app/models-export.json /app/backend/data/webui.db
 
 echo "✅ Open WebUI startup complete!"
 

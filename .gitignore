@@ -13,3 +13,4 @@ pruebas/
 .env
 .webui_secret_key
 data/
+ollama_models/
