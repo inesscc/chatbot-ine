@@ -4,13 +4,17 @@ Update postgres-tool-export.json with the current postgres_llm_tool.py content
 """
 
 import json
+import os
+
+# Get the directory where this script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Read the current tool content
-with open('/home/jeconchao/repos/oui/postgres_llm_tool.py', 'r') as f:
+with open('postgres_llm_tool.py', 'r') as f:
     current_tool_content = f.read()
 
 # Read the existing tools export
-with open('/home/jeconchao/repos/oui/postgres-tool-export.json', 'r') as f:
+with open('postgres-tool-export.json', 'r') as f:
     tools_export = json.load(f)
 
 # Update the postgres tool content
@@ -21,7 +25,7 @@ for tool in tools_export:
         break
 
 # Write back the updated export
-with open('/home/jeconchao/repos/oui/postgres-tool-export.json', 'w') as f:
+with open('postgres-tool-export.json', 'w') as f:
     json.dump(tools_export, f, indent=2)
 
-print("✅ tools-export.json updated successfully!")
+print("✅ postgres-tool-export.json updated successfully!")

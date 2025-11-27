@@ -18,8 +18,8 @@ import glob
 # Custom table name mapping for parquet files
 # Key: filename (without path), Value: table name in database
 TABLE_NAME_MAPPING = {
-    "ene_prueba_inicial.parquet": "ene_prueba_inicial",
-    "ene_sexo_prueba_inicial.parquet": "ene_sexo_prueba_inicial"
+    "ene_unificado.parquet": "ene_unificado",
+    #"ene_sexo_prueba_inicial.parquet": "ene_sexo_prueba_inicial"
 }
 
 def wait_for_db():
@@ -93,10 +93,11 @@ def discover_and_load_parquet_files():
 
     :return: Tuple of (success_count, failure_count)
     """
-    data_dir = "/data"
+    data_dir = "/data/current"
 
     # Discover all .parquet files
     parquet_files = glob.glob(os.path.join(data_dir, "*.parquet"))
+    print(f"Discovered parquet files: {parquet_files}")
 
     if not parquet_files:
         print(f"⚠️  No .parquet files found in {data_dir}")

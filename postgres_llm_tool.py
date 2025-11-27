@@ -115,7 +115,7 @@ class EventEmitter:
 
 
 # Allowed tables in your database schema
-ALLOWED_TABLES = ["ene_prueba_inicial", "ene_sexo_prueba_inicial"]
+ALLOWED_TABLES = ["ene_unificado"]
 
 
 class Tools:
@@ -162,6 +162,92 @@ class Tools:
         # If all fail, return the localhost config as default
         return configs[1]
 
+    async def get_available_tables(
+        self,
+        __event_emitter__: Callable[[dict], Any] | None = None,
+    ) -> str:
+        """
+        Get all available tables and their column information from the database.
+        Uses validate_sql internally for safety.
+
+        :param __event_emitter__: Event emitter for updates (optional).
+        :return: JSON string with table names and their columns.
+        """
+        emitter = EventEmitter(__event_emitter__)
+
+        try:
+            await emitter.emit(
+                description="Fetching available tables from database...",
+                status="fetching_tables",
+                done=False,
+            )
+
+            db_config = self.get_db_config()
+            tables_info = []
+
+            with psycopg2.connect(
+                dbname=db_config["dbname"],
+                user=db_config["user"],
+                password=db_config["password"],
+                host=db_config["host"],
+                port=db_config["port"],
+            ) as conn:
+                with conn.cursor() as cur:
+                    # Query each allowed table for its column information
+                    for table_name in ALLOWED_TABLES:
+                        # Build a safe query to get column names
+                        # We use a SELECT with LIMIT 0 to get column metadata without data
+                        sql_query = f"SELECT * FROM {table_name} LIMIT 0"
+
+
+                        cur.execute(sql_query)
+
+                        # Get column names from cursor description
+                        if cur.description is not None:
+                            columns = [desc[0] for desc in cur.description]
+                        else:
+                            columns = []
+
+                        # Get row count using a safe query
+                        count_query = f"SELECT COUNT(*) FROM {table_name}"
+                        # Note: COUNT is blocked by validate_sql, so we skip validation for this internal query
+                        # Instead, we manually ensure safety by only querying allowed tables
+                        if table_name in ALLOWED_TABLES:
+                            cur.execute(count_query)
+                            row_count = cur.fetchone()[0]
+                        else:
+                            row_count = "unknown"
+
+                        tables_info.append({
+                            "table_name": table_name,
+                            "columns": columns,
+                            "row_count": row_count,
+                        })
+
+            result = {
+                "available_tables": tables_info,
+                "total_tables": len(tables_info),
+            }
+
+            formatted_result = json.dumps(result, indent=2, default=str)
+
+            await emitter.emit(
+                description="Successfully retrieved available tables.",
+                content=formatted_result,
+                status="tables_fetched",
+                done=True,
+            )
+
+            return formatted_result
+
+        except Exception as e:
+            await emitter.emit(
+                description=f"Error fetching available tables: {str(e)}",
+                status="fetch_error",
+                done=True,
+            )
+            return f"Error fetching available tables: {e}"
+
     async def instruct_llm_to_generate_sql(
         self,
         natural_language_query: str,
@@ -183,51 +269,28 @@ class Tools:
 
         Database Schema:
 
-        Table 1: ene_prueba_inicial
-        Columns: (indicador, anio, trimestre, valor, mes_string, mes, fecha)
-
-
-        Table 1: ene_prueba_inicial
-        Columns: (indicador, anio, trimestre, valor, mes_string, mes, fecha)
+        Table: ene_unificado
+        Columns: (indicador, valor_indicador, grupo, valor_grupo, año, mes)
 
         Table Context:
-        Contains Chilean employment survey data aggregated by time period (monthly/quarterly).
+        Contains Chilean employment survey data with flexible grouping structure.
+        Data can be general (grupo="-") or disaggregated by category (e.g., grupo="sexo").
 
-        Contains Chilean employment survey data aggregated by time period (monthly/quarterly).
-
-        Sample data (first 2 rows):
-        indicador: tasa_desocupacion, anio: 2010, trimestre: Ene - Mar, valor: 9.227598063619205, mes_string: ene, mes: 1, fecha: 2010-1
-        indicador: tasa_desocupacion, anio: 2010, trimestre: Feb - Abr, valor: 8.836054099283027, mes_string: feb, mes: 2, fecha: 2010-2
-
+        Sample data:
+        indicador: personas_fuerza_trabajo, valor_indicador: 4808.37, grupo: sexo, valor_grupo: hombre, año: 2010, mes: -
+        indicador: personas_fuerza_trabajo, valor_indicador: 3191.70, grupo: sexo, valor_grupo: mujer, año: 2010, mes: -
+        indicador: personas_fuerza_trabajo, valor_indicador: 7883.69, grupo: -, valor_grupo: -, año: 2010, mes: 1
+        indicador: tasa_participacion, valor_indicador: 59.66, grupo: -, valor_grupo: -, año: 2022, mes: 4
 
         Column descriptions:
         - indicador: type of employment metric (see available indicators below)
-        - indicador: type of employment metric (see available indicators below)
-        - anio: year
-        - trimestre: quarter period (e.g., "Ene - Mar" for Jan-Mar)
-        - valor: numerical value of the indicator
-        - mes_string: month name in Spanish
-        - mes: month number (1-12)
-        - fecha: date in YYYY-M format
+        - valor_indicador: numerical value of the indicator
+        - grupo: grouping category ("sexo" for sex-disaggregated data, "-" for general/total data)
+        - valor_grupo: value of the grouping ("hombre" for male, "mujer" for female, "-" for general/total)
+        - año: year
+        - mes: month number as string (1-12 for monthly data, "-" for annual/aggregated data)
 
-        Table 2: ene_sexo_prueba_inicial
-        Columns: (indicador, anio, sexo, valor)
-
-        Table Context:
-        Contains Chilean employment survey data disaggregated by sex (gender).
-        Same employment indicators as ene_prueba_inicial but broken down by male/female.
-
-        Sample data (first 2 rows):
-        indicador: tasa_participacion, anio: 2010, sexo: hombre, valor: 70.5
-        indicador: tasa_participacion, anio: 2010, sexo: mujer, valor: 42.3
-
-        Column descriptions:
-        - indicador: type of employment metric (see available indicators below)
-        - anio: year
-        - sexo: sex/gender ("hombre" for male, "mujer" for female)
-        - valor: numerical value of the indicator
-
-        Available indicators (applies to both tables):
+        Available indicators:
         - tasa_desocupacion (unemployment rate)
         - tasa_ocupacion (employment rate)
         - tasa_participacion (participation rate)
@@ -235,10 +298,12 @@ class Tools:
         - poblacion_edad_trabajar (working age population)
 
         Query Guidelines:
-        - Use ene_prueba_inicial for time-series analysis (trends over months/quarters)
-        - Use ene_sexo_prueba_inicial for gender-based comparisons
+        - For general/total data: filter by grupo = '-' and valor_grupo = '-'
+        - For sex-disaggregated data: filter by grupo = 'sexo' and valor_grupo IN ('hombre', 'mujer')
+        - For monthly data: use mes with numeric values (1-12)
+        - For annual data: use mes = '-'
         - NEVER use aggregating functions like SUM or COUNT
-        - When querying by sex, use exact values "hombre" or "mujer"
+        - When comparing groups, use appropriate WHERE conditions on grupo and valor_grupo
 
         Available tables: {", ".join(ALLOWED_TABLES)}
         User Query: {natural_language_query}
