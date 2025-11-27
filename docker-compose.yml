@@ -11,7 +11,12 @@ services:
     volumes:
       - open-webui:/app/backend/data
       - ./ollama_models:/root/.ollama
-    restart: always
+      # Mount configuration files for hot-reload on restart
+      - ./postgres-tool-export.json:/app/postgres-tool-export.json:ro
+      - ./models-export.json:/app/models-export.json:ro
+      - ./import_tools.py:/app/import_tools.py:ro
+      - ./start_with_tools.sh:/app/start_with_tools.sh:ro
+    restart: unless-stopped
     deploy:
       resources:
         reservations:
@@ -35,7 +40,7 @@ services:
       context: .
       dockerfile: Dockerfile.postgres
     container_name: toy-postgres
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_DB: toydb
       POSTGRES_USER: toyuser
@@ -44,13 +49,16 @@ services:
       - "5438:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-  watchtower:
-    image: containrrr/watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 300 open-webui
-    depends_on:
-      - open-webui
+      # Mount data and scripts for hot-reload on restart
+      - ./data:/data:ro
+      - ./load_parquet_to_db_auto.py:/scripts/load_parquet_to_db_auto.py:ro
+  # watchtower:
+  #   image: containrrr/watchtower
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   command: --interval 300 open-webui
+  #   depends_on:
+  #     - open-webui
 volumes:
   open-webui:
   pgdata:
