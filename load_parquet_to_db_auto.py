@@ -18,8 +18,7 @@ import glob
 # Custom table name mapping for parquet files
 # Key: filename (without path), Value: table name in database
 TABLE_NAME_MAPPING = {
-    "ene_unificado.parquet": "ene_unificado",
-    #"ene_sexo_prueba_inicial.parquet": "ene_sexo_prueba_inicial"
+    "total_unificado.parquet": "total_unificado",
 }
 
 def wait_for_db():
