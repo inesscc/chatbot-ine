@@ -115,7 +115,7 @@ class EventEmitter:
 
 
 # Allowed tables in your database schema
-ALLOWED_TABLES = ["ene_unificado"]
+ALLOWED_TABLES = ["total_unificado"]
 
 
 class Tools:
@@ -162,28 +162,50 @@ class Tools:
         # If all fail, return the localhost config as default
         return configs[1]
 
-    async def get_available_tables(
+    async def get_indicator_metadata(
         self,
+        indicator_name: str | None = None,
         __event_emitter__: Callable[[dict], Any] | None = None,
     ) -> str:
         """
-        Get all available tables and their column information from the database.
-        Uses validate_sql internally for safety.
+        Get comprehensive metadata about available indicators in the database.
+
+        Returns both structured JSON and natural language summary to help the LLM
+        understand what data is available before generating SQL queries.
+
+        For each indicator, provides:
+        - Available years (min, max)
+        - Available groupings (national, by sex, by region)
+        - Frequency types (monthly, annual)
+        - Sample query patterns
 
         :param __event_emitter__: Event emitter for updates (optional).
-        :return: JSON string with table names and their columns.
+        :return: JSON string with comprehensive indicator metadata.
         """
         emitter = EventEmitter(__event_emitter__)
 
         try:
             await emitter.emit(
-                description="Fetching available tables from database...",
-                status="fetching_tables",
+                description="Fetching indicator metadata from database...",
+                status="fetching_metadata",
                 done=False,
             )
 
             db_config = self.get_db_config()
-            tables_info = []
+            indicators_metadata = []
+
+            # Indicator descriptions
+            indicator_descriptions = {
+                "tasa_desocupacion": "Unemployment rate",
+                "tasa_ocupacion": "Employment rate",
+                "tasa_participacion": "Labor force participation rate",
+                "personas_fuerza_trabajo": "People in workforce",
+                "poblacion_edad_trabajar": "Working age population",
+                "percepcion_aumento_delincuencia_pais": "Perception of crime increase in the country",
+                "victimizacion_hogares_delitos_mayor_connotacion_social": "Household victimization - major social crimes",
+                "victimizacion_hogares_delitos_violentos": "Household victimization - violent crimes",
+                "victimizacion_personas_delitos_violentos": "Personal victimization - violent crimes",
+            }
 
             with psycopg2.connect(
                 dbname=db_config["dbname"],
@@ -193,48 +215,202 @@ class Tools:
                 port=db_config["port"],
             ) as conn:
                 with conn.cursor() as cur:
-                    # Query each allowed table for its column information
-                    for table_name in ALLOWED_TABLES:
-                        # Build a safe query to get column names
-                        # We use a SELECT with LIMIT 0 to get column metadata without data
-                        sql_query = f"SELECT * FROM {table_name} LIMIT 0"
+                    # Get overall table info
+                    table_name = ALLOWED_TABLES[0]
 
 
-                        cur.execute(sql_query)
+                    # Get list of all indicators (or filter if specified)
+                    if indicator_name:
+                        # Validate that the indicator exists
+                        cur.execute(f"SELECT DISTINCT indicador FROM {table_name} WHERE indicador = %s", (indicator_name,))
+                        result = cur.fetchone()
+                        if not result:
+                            # Fetch available indicators for error message
+                            cur.execute(f"SELECT DISTINCT indicador FROM {table_name} ORDER BY indicador")
+                            available = [row[0] for row in cur.fetchall()]
 
-                        # Get column names from cursor description
-                        if cur.description is not None:
-                            columns = [desc[0] for desc in cur.description]
-                        else:
-                            columns = []
+                            await emitter.emit(
+                                description=f"Indicator '{indicator_name}' not found in database.",
+                                status="indicator_not_found",
+                                done=True,
+                            )
+                            return json.dumps({
+                                "error": f"Indicator '{indicator_name}' not found",
+                                "available_indicators": available
+                            }, indent=2)
+                        all_indicators = [indicator_name]
+                    else:
+                        cur.execute(f"SELECT DISTINCT indicador FROM {table_name} ORDER BY indicador")
+                        all_indicators = [row[0] for row in cur.fetchall()]
 
-                        # Get row count using a safe query
-                        count_query = f"SELECT COUNT(*) FROM {table_name}"
-                        # Note: COUNT is blocked by validate_sql, so we skip validation for this internal query
-                        # Instead, we manually ensure safety by only querying allowed tables
-                        if table_name in ALLOWED_TABLES:
-                            cur.execute(count_query)
-                            row_count = cur.fetchone()[0]
-                        else:
-                            row_count = "unknown"
+                    # For each indicator, get detailed metadata
+                    for indicador in all_indicators:
+                        # Get basic stats
+                        cur.execute(f"""
+                            SELECT
 
-                        tables_info.append({
-                            "table_name": table_name,
-                            "columns": columns,
-                            "row_count": row_count,
+                                MIN(año) as min_year,
+                                MAX(año) as max_year
+                            FROM {table_name}
+                            WHERE indicador = %s
+                        """, (indicador,))
+                        min_year, max_year = cur.fetchone()
+
+                        # Get available frequencies
+                        cur.execute(f"""
+                            SELECT DISTINCT frecuencia
+                            FROM {table_name}
+                            WHERE indicador = %s AND frecuencia IS NOT NULL
+                            ORDER BY frecuencia
+                        """, (indicador,))
+                        frequencies = [row[0] for row in cur.fetchall()]
+
+                        # Get grouping information
+                        cur.execute(f"""
+                            SELECT
+                                grupo
+                            FROM {table_name}
+                            WHERE indicador = %s
+                            GROUP BY grupo
+                            ORDER BY grupo NULLS FIRST
+                        """, (indicador,))
+                        grouping_rows = cur.fetchall()
+                        grouping_rows = [i[0] for i in grouping_rows]
+
+                        groupings = []
+                        for grupo  in grouping_rows:
+                            if grupo is None:
+                                groupings.append({
+                                    "type": "national",
+                                    "description": "National aggregated data (grupo IS NULL)"
+                                })
+                            else:
+
+                                groupings.append({
+                                    "type": grupo,
+
+                                })
+
+                        # Build query examples
+                        query_examples = []
+                        if "nacional" in [g["type"] for g in groupings] or any(g["type"] == "national" for g in groupings):
+                            if "mensual" in frequencies:
+                                query_examples.append(
+                                    f"For national monthly data: WHERE indicador='{indicador}' AND grupo IS NULL AND frecuencia='mensual'"
+                                )
+                            if "anual" in frequencies:
+                                query_examples.append(
+                                    f"For national annual data: WHERE indicador='{indicador}' AND grupo IS NULL AND frecuencia='anual'"
+                                )
+
+                        for grp in groupings:
+                            if grp["type"] == "sexo":
+                                query_examples.append(
+                                    f"For men's data: WHERE indicador='{indicador}' AND grupo='sexo' AND valor_grupo='hombre'"
+                                )
+                                break
+                            elif grp["type"] == "region":
+                                query_examples.append(
+                                    f"For regional data (e.g., Region 13): WHERE indicador='{indicador}' AND grupo='region' AND valor_grupo='13'"
+                                )
+                                break
+
+                        # Build indicator metadata
+                        indicators_metadata.append({
+                            "name": indicador,
+                            "description": indicator_descriptions.get(indicador, ""),
+                            "time_coverage": {
+                                "min_year": int(min_year) if min_year else None,
+                                "max_year": int(max_year) if max_year else None,
+                                "frequencies": frequencies
+                            },
+                            "groupings": groupings,
+                            "query_examples": query_examples
                         })
 
+                    # Get global grouping dimensions
+                    cur.execute(f"""
+                        SELECT DISTINCT valor_grupo
+                        FROM {table_name}
+                        WHERE grupo = 'sexo' AND valor_grupo IS NOT NULL
+                        ORDER BY valor_grupo
+                    """)
+                    sexo_values = [row[0] for row in cur.fetchall()]
+
+                    cur.execute(f"""
+                        SELECT DISTINCT valor_grupo
+                        FROM {table_name}
+                        WHERE grupo = 'region' AND valor_grupo IS NOT NULL
+                        ORDER BY valor_grupo
+                    """)
+                    region_values = [row[0] for row in cur.fetchall()]
+
+                    grouping_dimensions = {}
+                    if sexo_values:
+                        grouping_dimensions["sexo"] = sexo_values
+                    if region_values:
+                        grouping_dimensions["region"] = '"1" to "16"'
+
+            # Build natural language summary
+            summary_lines = ["Available Indicators:\n"]
+
+            # Group by category
+            employment_indicators = [ind for ind in indicators_metadata
+                                      if ind["name"] in ["tasa_desocupacion", "tasa_ocupacion",
+                                                         "tasa_participacion", "personas_fuerza_trabajo",
+                                                         "poblacion_edad_trabajar"]]
+            crime_indicators = [ind for ind in indicators_metadata
+                                if ind["name"] not in ["tasa_desocupacion", "tasa_ocupacion",
+                                                       "tasa_participacion", "personas_fuerza_trabajo",
+                                                       "poblacion_edad_trabajar"]]
+
+            if employment_indicators:
+                summary_lines.append("Employment Indicators (ENE):")
+                for ind in employment_indicators:
+                    freqs = ", ".join(ind["time_coverage"]["frequencies"])
+                    grouping_types = [g["type"] for g in ind["groupings"]]
+                    summary_lines.append(
+                        f"  - {ind['name']}: {ind['description']}. "
+                        f"Data from {ind['time_coverage']['min_year']}-{ind['time_coverage']['max_year']}. "
+                        f"Available {freqs}. Groupings: {', '.join(grouping_types)}"
+                    )
+                summary_lines.append("")
+
+            if crime_indicators:
+                summary_lines.append("Crime/Security Indicators (ENUSC):")
+                for ind in crime_indicators:
+                    freqs = ", ".join(ind["time_coverage"]["frequencies"])
+                    grouping_types = [g["type"] for g in ind["groupings"]]
+                    summary_lines.append(
+                        f"  - {ind['name']}: {ind['description']}. "
+                        f"Data from {ind['time_coverage']['min_year']}-{ind['time_coverage']['max_year']}. "
+                        f"Available {freqs}. Groupings: {', '.join(grouping_types)}"
+                    )
+                summary_lines.append("")
+
+            summary_lines.append("Key SQL Patterns:")
+            summary_lines.append("  - For national/total data: grupo IS NULL AND valor_grupo IS NULL")
+            summary_lines.append("  - For sex-disaggregated data: grupo='sexo' AND valor_grupo IN ('hombre', 'mujer')")
+            summary_lines.append("  - For regional data: grupo='region' AND valor_grupo IN ('1', '2', ..., '16')")
+            summary_lines.append("  - For monthly data: frecuencia='mensual' AND mes IS NOT NULL")
+            summary_lines.append("  - For annual data: frecuencia='anual' AND mes IS NULL")
+
+            summary = "\n".join(summary_lines)
+
+            # Build final result
             result = {
-                "available_tables": tables_info,
-                "total_tables": len(tables_info),
+                "table_name": table_name,
+                "summary": summary,
+                "indicators": indicators_metadata,
+                "grouping_dimensions": grouping_dimensions
             }
 
             formatted_result = json.dumps(result, indent=2, default=str)
 
             await emitter.emit(
-                description="Successfully retrieved available tables.",
+                description="Successfully retrieved indicator metadata.",
                 content=formatted_result,
-                status="tables_fetched",
+                status="metadata_fetched",
                 done=True,
             )
 
@@ -242,11 +418,11 @@ class Tools:
 
         except Exception as e:
             await emitter.emit(
-                description=f"Error fetching available tables: {str(e)}",
+                description=f"Error fetching indicator metadata: {str(e)}",
                 status="fetch_error",
                 done=True,
             )
-            return f"Error fetching available tables: {e}"
+            return f"Error fetching indicator metadata: {e}"
 
     async def instruct_llm_to_generate_sql(
         self,
@@ -269,47 +445,59 @@ class Tools:
 
         Database Schema:
 
-        Table: ene_unificado
-        Columns: (indicador, valor_indicador, grupo, valor_grupo, año, mes)
+        Table: total_unificado
+        Columns: (indicador, valor_indicador, grupo, valor_grupo, año, mes, frecuencia)
 
-        Table Context:
-        Contains Chilean employment survey data with flexible grouping structure.
-        Data can be general (grupo="-") or disaggregated by category (e.g., grupo="sexo").
+        Schema Description:
+        This table contains unified Chilean indicators from multiple sources (employment survey ENE and crime/security survey ENUSC).
+        It uses a flexible grouping structure to support both aggregated and disaggregated data.
 
-        Sample data:
-        indicador: personas_fuerza_trabajo, valor_indicador: 4808.37, grupo: sexo, valor_grupo: hombre, año: 2010, mes: -
-        indicador: personas_fuerza_trabajo, valor_indicador: 3191.70, grupo: sexo, valor_grupo: mujer, año: 2010, mes: -
-        indicador: personas_fuerza_trabajo, valor_indicador: 7883.69, grupo: -, valor_grupo: -, año: 2010, mes: 1
-        indicador: tasa_participacion, valor_indicador: 59.66, grupo: -, valor_grupo: -, año: 2022, mes: 4
+        Column Descriptions:
+        - indicador: Type of metric (e.g., tasa_desocupacion, personas_fuerza_trabajo, percepcion_aumento_delincuencia_pais)
+        - valor_indicador: Numerical value of the indicator
+        - grupo: Grouping category (NULL for national data, 'sexo' for sex-disaggregated, 'region' for regional)
+        - valor_grupo: Value within the group (NULL for national, 'hombre'/'mujer' for sex, '1'-'16' for regions)
+        - año: Year (integer)
+        - mes: Month number ('1'-'12' for monthly data, NULL for annual data)
+        - frecuencia: Data frequency ('mensual' or 'anual')
 
-        Column descriptions:
-        - indicador: type of employment metric (see available indicators below)
-        - valor_indicador: numerical value of the indicator
-        - grupo: grouping category ("sexo" for sex-disaggregated data, "-" for general/total data)
-        - valor_grupo: value of the grouping ("hombre" for male, "mujer" for female, "-" for general/total)
-        - año: year
-        - mes: month number as string (1-12 for monthly data, "-" for annual/aggregated data)
+        Sample Data:
+        indicador: personas_fuerza_trabajo, valor_indicador: 4808.37, grupo: sexo, valor_grupo: hombre, año: 2010, mes: None, frecuencia: anual
+        indicador: personas_fuerza_trabajo, valor_indicador: 3191.70, grupo: sexo, valor_grupo: mujer, año: 2010, mes: None, frecuencia: anual
+        indicador: personas_fuerza_trabajo, valor_indicador: 7883.69, grupo: NULL, valor_grupo: NULL, año: 2010, mes: 1, frecuencia: mensual
+        indicador: tasa_participacion, valor_indicador: 59.66, grupo: NULL, valor_grupo: NULL, año: 2022, mes: 4, frecuencia: mensual
 
-        Available indicators:
+        Available Indicators:
+        Employment Indicators (ENE):
         - tasa_desocupacion (unemployment rate)
         - tasa_ocupacion (employment rate)
-        - tasa_participacion (participation rate)
+        - tasa_participacion (labor force participation rate)
         - personas_fuerza_trabajo (people in workforce)
         - poblacion_edad_trabajar (working age population)
 
+        Crime/Security Indicators (ENUSC):
+        - percepcion_aumento_delincuencia_pais (perception of crime increase)
+        - victimizacion_hogares_delitos_mayor_connotacion_social (household victimization - major crimes)
+        - victimizacion_hogares_delitos_violentos (household victimization - violent crimes)
+        - victimizacion_personas_delitos_violentos (personal victimization - violent crimes)
+
+        CRITICAL SQL Patterns (you MUST use these exact patterns):
+        - For national/total data: WHERE grupo IS NULL AND valor_grupo IS NULL
+        - For sex-disaggregated data: WHERE grupo = 'sexo' AND valor_grupo IN ('hombre', 'mujer')
+        - For regional data: WHERE grupo = 'region' AND valor_grupo IN ('1', '2', ..., '16')
+        - For monthly data: WHERE frecuencia = 'mensual' AND mes IS NOT NULL
+        - For annual data: WHERE frecuencia = 'anual' AND mes IS NULL
+
         Query Guidelines:
-        - For general/total data: filter by grupo = '-' and valor_grupo = '-'
-        - For sex-disaggregated data: filter by grupo = 'sexo' and valor_grupo IN ('hombre', 'mujer')
-        - For monthly data: use mes with numeric values (1-12)
-        - For annual data: use mes = '-'
+        - NEVER use = NULL or != NULL. ALWAYS use IS NULL or IS NOT NULL for NULL comparisons
         - NEVER use aggregating functions like SUM or COUNT
         - When comparing groups, use appropriate WHERE conditions on grupo and valor_grupo
+        - Remember that NULL values require IS NULL / IS NOT NULL operators
 
         Available tables: {", ".join(ALLOWED_TABLES)}
         User Query: {natural_language_query}
 
         Reply ONLY with the SQL SELECT command, no additional text is permitted.
-        Use proper JOIN syntax when querying related tables.
         """
 
         # Step 1: Get the available models from Ollama
@@ -376,7 +564,7 @@ class Tools:
 
                         # Emit progress for debugging or user feedback
                         await emitter.emit(
-                            content=f"Partial response received: {chunk.get('response', '')}",
+                            content=f"Respuesta parcial recibida: {chunk.get('response', '')}",
                             status="sql_generation_in_progress",
                             done=False,
                         )
@@ -386,18 +574,17 @@ class Tools:
                             break
                     except json.JSONDecodeError as e:
                         await emitter.emit(
-                            description=f"Error parsing streaming JSON: {e}",
+                            description=f"Error procesando JSON en streaming: {e}",
                             status="json_parse_error",
                             done=True,
                         )
-                        return f"Error parsing streaming JSON: {e}"
-
+                        return f"Error procesando JSON en streaming: {e}"
                 return sql_query
 
         try:
             # Use asyncio to run the asynchronous request
             await emitter.emit(
-                description="Generating SQL command from the natural language query...",
+                description="Generando comando SQL a partir de la consulta en lenguaje natural...",
                 status="sql_generation_in_progress",
                 done=False,
             )
@@ -407,7 +594,7 @@ class Tools:
                 raise ValueError("No SQL query was returned by the LLM.")
 
             await emitter.emit(
-                description="SQL query generated successfully.",
+                description="Comando SQL generado exitosamente.",
                 status="sql_generated",
                 done=True,
             )
@@ -415,12 +602,11 @@ class Tools:
             return sql_query  # Return the SQL query
         except Exception as e:
             await emitter.emit(
-                description=f"Error while instructing LLM to generate SQL: {e}",
+                description=f"Error al instruir al LLM para generar SQL: {e}",
                 status="query_error",
                 done=True,
             )
-            return f"Error while instructing LLM to generate SQL: {e}"
-
+            return f"Error al instruir al LLM para generar SQL: {e}"
     async def execute_query(
         self,
         natural_language_query: str,
@@ -438,7 +624,7 @@ class Tools:
         try:
             # Step 1: Generate the SQL command
             await emitter.emit(
-                description="Generating SQL command from the natural language query...",
+                description="Generando comando SQL a partir de la consulta en lenguaje natural...",
                 status="sql_generation_in_progress",
                 done=False,
             )
@@ -451,7 +637,7 @@ class Tools:
                 raise ValueError("Generated SQL query is empty.")
 
             await emitter.emit(
-                description=f"Generated SQL: {sql_query}",
+                description=f"Comando SQL generado: {sql_query}",
                 status="sql_generated",
                 done=False,
             )
@@ -485,7 +671,7 @@ class Tools:
 
                     # Step 3: Emit success message with results
                     await emitter.emit(
-                        description="SQL command executed successfully.",
+                        description="Comando SQL ejecutado exitosamente.",
                         content=formatted_results,
                         status="query_success",
                         done=True,
@@ -495,12 +681,11 @@ class Tools:
 
         except Exception as e:
             await emitter.emit(
-                description=f"Error during query execution: {str(e)}",
+                description=f"Error durante la ejecución de la consulta: {str(e)}",
                 status="query_error",
                 done=True,
             )
-            return f"Error executing query: {e}"
-
+            return f"Error ejecutando la consulta: {e}"
 
 # Example usage function for testing
 async def test_tool():
@@ -517,6 +702,7 @@ async def test_tool():
 
     for query in test_queries:
         print(f"\n--- Testing: {query} ---")
+        res1 = await tool.get_indicator_metadata()
         result = await tool.execute_query(query)
         print(result)
 
