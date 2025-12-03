@@ -93,7 +93,7 @@ class EventEmitter:
 
     async def emit(
         self,
-        description="Processing...",
+        description="Procesando...",
         status="in_progress",
         content="",
         message=None,
@@ -311,7 +311,7 @@ class Tools:
                                 break
                             elif grp["type"] == "region":
                                 query_examples.append(
-                                    f"For regional data (e.g., Region 13): WHERE indicador='{indicador}' AND grupo='region' AND valor_grupo='13'"
+                                    f"For regional data (e.g., Metropolitana): WHERE indicador='{indicador}' AND grupo='region' AND valor_grupo='Metropolitana'"
                                 )
                                 break
 
@@ -349,7 +349,7 @@ class Tools:
                     if sexo_values:
                         grouping_dimensions["sexo"] = sexo_values
                     if region_values:
-                        grouping_dimensions["region"] = '"1" to "16"'
+                        grouping_dimensions["region"] = region_values
 
             # Build natural language summary
             summary_lines = ["Available Indicators:\n"]
@@ -391,7 +391,7 @@ class Tools:
             summary_lines.append("Key SQL Patterns:")
             summary_lines.append("  - For national/total data: grupo IS NULL AND valor_grupo IS NULL")
             summary_lines.append("  - For sex-disaggregated data: grupo='sexo' AND valor_grupo IN ('hombre', 'mujer')")
-            summary_lines.append("  - For regional data: grupo='region' AND valor_grupo IN ('1', '2', ..., '16')")
+            summary_lines.append("  - For regional data: grupo='region' AND valor_grupo IN (region names like 'Metropolitana', 'Valparaíso', etc.)")
             summary_lines.append("  - For monthly data: frecuencia='mensual' AND mes IS NOT NULL")
             summary_lines.append("  - For annual data: frecuencia='anual' AND mes IS NULL")
 
@@ -456,7 +456,7 @@ class Tools:
         - indicador: Type of metric (e.g., tasa_desocupacion, personas_fuerza_trabajo, percepcion_aumento_delincuencia_pais)
         - valor_indicador: Numerical value of the indicator
         - grupo: Grouping category (NULL for national data, 'sexo' for sex-disaggregated, 'region' for regional)
-        - valor_grupo: Value within the group (NULL for national, 'hombre'/'mujer' for sex, '1'-'16' for regions)
+        - valor_grupo: Value within the group (NULL for national, 'hombre'/'mujer' for sex, region names like 'Metropolitana', 'Valparaíso', etc. for regions)
         - año: Year (integer)
         - mes: Month number ('1'-'12' for monthly data, NULL for annual data)
         - frecuencia: Data frequency ('mensual' or 'anual')
@@ -484,7 +484,7 @@ class Tools:
         CRITICAL SQL Patterns (you MUST use these exact patterns):
         - For national/total data: WHERE grupo IS NULL AND valor_grupo IS NULL
         - For sex-disaggregated data: WHERE grupo = 'sexo' AND valor_grupo IN ('hombre', 'mujer')
-        - For regional data: WHERE grupo = 'region' AND valor_grupo IN ('1', '2', ..., '16')
+        - For regional data: WHERE grupo = 'region' AND valor_grupo IN (region names like 'Metropolitana', 'Valparaíso', 'Biobío', etc.)
         - For monthly data: WHERE frecuencia = 'mensual' AND mes IS NOT NULL
         - For annual data: WHERE frecuencia = 'anual' AND mes IS NULL
 
@@ -666,7 +666,9 @@ class Tools:
                     else:
                         # This should never happen after a successful execute, but satisfies type checker
                         results = [list(row) for row in rows]
-
+                    
+                    results.append({'used_query': safe_query})
+                    
                     formatted_results = json.dumps(results, indent=2, default=str)
 
                     # Step 3: Emit success message with results
