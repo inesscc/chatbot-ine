@@ -10,6 +10,31 @@ import pandas as pd
 import os
 import numpy as np
 from pathlib import Path
+
+
+mapa_regiones = {
+    "Arica y Parinacota": "15",
+    "Tarapacá": "1",
+    "Antofagasta": "2",
+    "Atacama": "3",
+    "Coquimbo": "4",
+    "Valparaíso": "5",
+
+    "Metropolitana": "13",
+    "O'Higgins": "6",
+    "Maule": "7",
+    "Ñuble": "16",
+
+    "Biobío": "8",
+
+    "Araucanía": "9",
+    "Los Ríos": "14",
+    "Los Lagos": "10",
+
+    "Aysén": "11",
+    "Magallanes": "12"
+}
+mapa_regiones = {v:k for k,v in mapa_regiones.items()}  # Reverse mapping for regions
 # Get the directory where this script is located
 
 data_dir = Path('data/')
@@ -40,41 +65,50 @@ df_sexo_unified = pd.DataFrame({
 })
 
 # Combine both dataframes
-df_unified = pd.concat([df_nacional_unified, df_sexo_unified], ignore_index=True)
+df_ene = pd.concat([df_nacional_unified, df_sexo_unified], ignore_index=True)
 
 # Sort by indicador, año, mes, grupo
-df_unified = df_unified.sort_values(['indicador', 'año', 'mes', 'grupo', 'valor_grupo']).reset_index(drop=True)
+df_ene = df_ene.sort_values(['indicador', 'año', 'mes', 'grupo', 'valor_grupo']).reset_index(drop=True)
 
 # Save to parquet
 
-df_unified.grupo = df_unified.grupo.replace('-', np.nan)
-df_unified.mes = df_unified.mes.replace('-', np.nan)
-df_unified['frecuencia'] = np.where(df_unified.mes.isna(), 'anual', 'mensual')
+df_ene.grupo = df_ene.grupo.replace('-', np.nan)
+df_ene.mes = df_ene.mes.replace('-', np.nan)
 
-df_unified.to_parquet(data_dir_old / 'ene_unificado.parquet', index=False)
+
+df_ene['frecuencia'] = np.where(df_ene.mes.isna(), 'anual', 'mensual')
+
+df_ene.to_parquet(data_dir_old / 'ene_unificado.parquet', index=False)
 
 
 enusc = pd.read_parquet(data_dir_old / 'enusc_unificado.parquet')\
     .drop(columns=['codigo_indicador'])
 enusc = enusc[~enusc.grupo.isin(['nse', 'quintil'])]
 
-df_total = pd.concat([df_unified, enusc], ignore_index=True)
+df_total = pd.concat([df_ene, enusc], ignore_index=True)
 df_total.grupo = df_total.grupo.replace('nacional', np.nan)
 df_total.valor_grupo = df_total.valor_grupo.replace('Total País', np.nan)
 df_total.valor_grupo = df_total.valor_grupo.replace('-', np.nan)
 df_total.mes = df_total.mes.astype('Int64', errors='ignore')
 
+
+
+filter_regs = df_total.grupo == 'region'
+df_total.grupo
+df_total.loc[filter_regs, 'valor_grupo' ] = df_total.loc[filter_regs, ].valor_grupo.map(mapa_regiones)
+
+
 output_path = data_dir / 'current/total_unificado.parquet'
 df_total.to_parquet(output_path, index=False)
 
 print(f"✅ Unified table saved to: {output_path}")
-print(f"\nShape: {df_unified.shape}")
-print(f"\nColumns: {df_unified.columns.tolist()}")
+print(f"\nShape: {df_ene.shape}")
+print(f"\nColumns: {df_ene.columns.tolist()}")
 print(f"\nFirst 10 rows:")
-print(df_unified.head(10))
+print(df_ene.head(10))
 print(f"\nLast 10 rows:")
-print(df_unified.tail(10))
+print(df_ene.tail(10))
 print(f"\nUnique values:")
-print(f"  - indicador: {df_unified['indicador'].unique()}")
-print(f"  - grupo: {df_unified['grupo'].unique()}")
-print(f"  - valor_grupo: {df_unified['valor_grupo'].unique()}")
+print(f"  - indicador: {df_ene['indicador'].unique()}")
+print(f"  - grupo: {df_ene['grupo'].unique()}")
+print(f"  - valor_grupo: {df_ene['valor_grupo'].unique()}")
