@@ -38,58 +38,19 @@ mapa_regiones = {v:k for k,v in mapa_regiones.items()}  # Reverse mapping for re
 # Get the directory where this script is located
 
 data_dir = Path('data/')
-data_dir_old = data_dir / 'old'
-# Read both parquet files
-df_nacional = pd.read_parquet(data_dir_old / 'ene_prueba_inicial.parquet')
-df_sexo = pd.read_parquet(data_dir_old / 'ene_sexo_prueba_inicial.parquet')
-# Process national data (ene_prueba_inicial)
-# grupo = "-", valor_grupo = "-", mes from original data
-df_nacional_unified = pd.DataFrame({
-    'indicador': df_nacional['indicador'],
-    'valor_indicador': df_nacional['valor'],
-    'grupo': '-',
-    'valor_grupo': '-',
-    'año': df_nacional['anio'].astype(int),
-    'mes': df_nacional['mes'].astype(int).astype(str)  # Keep month as string for consistency
-})
 
-# Process sexo data (ene_sexo_prueba_inicial)
-# grupo = "sexo", valor_grupo = hombre/mujer, mes = "-" (yearly data)
-df_sexo_unified = pd.DataFrame({
-    'indicador': df_sexo['indicador'],
-    'valor_indicador': df_sexo['valor'],
-    'grupo': 'sexo',
-    'valor_grupo': df_sexo['sexo'],
-    'año': df_sexo['anio'].astype(int),
-    'mes': '-'  # Yearly data has no month
-})
-
-# Combine both dataframes
-df_ene = pd.concat([df_nacional_unified, df_sexo_unified], ignore_index=True)
-
-# Sort by indicador, año, mes, grupo
-df_ene = df_ene.sort_values(['indicador', 'año', 'mes', 'grupo', 'valor_grupo']).reset_index(drop=True)
-
-# Save to parquet
-
-df_ene.grupo = df_ene.grupo.replace('-', np.nan)
-df_ene.mes = df_ene.mes.replace('-', np.nan)
+df_enusc = pd.read_parquet('data/intermediate/enusc_unificado.parquet').drop(columns=['codigo_indicador'])
+df_enusc['mes'] = np.nan
+df_ene = pd.read_parquet('data/intermediate/ene_unificado.parquet')
 
 
-df_ene['frecuencia'] = np.where(df_ene.mes.isna(), 'anual', 'mensual')
 
-df_ene.to_parquet(data_dir_old / 'ene_unificado.parquet', index=False)
-
-
-enusc = pd.read_parquet(data_dir_old / 'enusc_unificado.parquet')\
-    .drop(columns=['codigo_indicador'])
-enusc = enusc[~enusc.grupo.isin(['nse', 'quintil'])]
-
-df_total = pd.concat([df_ene, enusc], ignore_index=True)
+df_total = pd.concat([df_ene, df_enusc], ignore_index=True)
 df_total.grupo = df_total.grupo.replace('nacional', np.nan)
 df_total.valor_grupo = df_total.valor_grupo.replace('Total País', np.nan)
 df_total.valor_grupo = df_total.valor_grupo.replace('-', np.nan)
 df_total.mes = df_total.mes.astype('Int64', errors='ignore')
+df_total.año = df_total.año.astype('Int64', errors='ignore')
 
 
 
@@ -112,3 +73,51 @@ print(f"\nUnique values:")
 print(f"  - indicador: {df_ene['indicador'].unique()}")
 print(f"  - grupo: {df_ene['grupo'].unique()}")
 print(f"  - valor_grupo: {df_ene['valor_grupo'].unique()}")
+
+# # Combine both dataframes
+# df_ene = pd.concat([df_nacional_unified, df_sexo_unified], ignore_index=True)
+
+# # Sort by indicador, año, mes, grupo
+# df_ene = df_ene.sort_values(['indicador', 'año', 'mes', 'grupo', 'valor_grupo']).reset_index(drop=True)
+
+# # Save to parquet
+
+# df_ene.grupo = df_ene.grupo.replace('-', np.nan)
+# df_ene.mes = df_ene.mes.replace('-', np.nan)
+
+
+# df_ene['frecuencia'] = np.where(df_ene.mes.isna(), 'anual', 'mensual')
+
+# df_ene.to_parquet(data_dir_old / 'ene_unificado.parquet', index=False)
+
+
+# enusc = pd.read_parquet(data_dir_old / 'enusc_unificado.parquet')\
+#     .drop(columns=['codigo_indicador'])
+# enusc = enusc[~enusc.grupo.isin(['nse', 'quintil'])]
+
+# data_dir_old = data_dir / 'old'
+# # Read both parquet files
+# df_nacional = pd.read_parquet(data_dir_old / 'ene_prueba_inicial.parquet')
+# df_sexo = pd.read_parquet(data_dir_old / 'ene_sexo_prueba_inicial.parquet')
+# # Process national data (ene_prueba_inicial)
+# # grupo = "-", valor_grupo = "-", mes from original data
+# df_nacional_unified = pd.DataFrame({
+#     'indicador': df_nacional['indicador'],
+#     'valor_indicador': df_nacional['valor'],
+#     'grupo': '-',
+#     'valor_grupo': '-',
+#     'año': df_nacional['anio'].astype(int),
+#     'mes': df_nacional['mes'].astype(int).astype(str)  # Keep month as string for consistency
+# })
+
+# # Process sexo data (ene_sexo_prueba_inicial)
+# # grupo = "sexo", valor_grupo = hombre/mujer, mes = "-" (yearly data)
+# df_sexo_unified = pd.DataFrame({
+#     'indicador': df_sexo['indicador'],
+#     'valor_indicador': df_sexo['valor'],
+#     'grupo': 'sexo',
+#     'valor_grupo': df_sexo['sexo'],
+#     'año': df_sexo['anio'].astype(int),
+#     'mes': '-'  # Yearly data has no month
+# })
+# df_enusc.codigo_indicador
