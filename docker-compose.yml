@@ -34,6 +34,9 @@ services:
       POSTGRES_USER: toyuser
       POSTGRES_PASSWORD: toypass
       OLLAMA_HOST: 0.0.0.0
+    networks:
+      - webui-net
+
 
   db:
     build:
@@ -62,3 +65,8 @@ services:
 volumes:
   open-webui:
   pgdata:
+
+
+networks:
+  webui-net:
+    external: true 
