@@ -42,7 +42,8 @@ data_dir = Path('data/')
 df_enusc = pd.read_parquet('data/intermediate/enusc_unificado.parquet').drop(columns=['codigo_indicador'])
 df_enusc['mes'] = np.nan
 df_ene = pd.read_parquet('data/intermediate/ene_unificado.parquet')
-
+df_ene['indicador'] = df_ene['indicador'].replace({'fuerza_trabajo': 'personas_fuerza_trabajo',
+                                                   'poblacion_edad_trabajar': 'personas_edad_trabajar'})
 
 
 df_total = pd.concat([df_ene, df_enusc], ignore_index=True)
@@ -60,6 +61,8 @@ df_total.loc[filter_regs, 'valor_grupo' ] = df_total.loc[filter_regs, ].valor_gr
 
 
 output_path = data_dir / 'current/total_unificado.parquet'
+df_total.indicador.unique()
+df_total[df_total.indicador == 'fuerza_trabajo']
 df_total.to_parquet(output_path, index=False)
 
 print(f"✅ Unified table saved to: {output_path}")
