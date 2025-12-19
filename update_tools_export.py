@@ -5,6 +5,7 @@ Update postgres-tool-export.json with the current postgres_llm_tool.py content
 
 import json
 import os
+import time
 
 # Get the directory where this script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +22,10 @@ with open('postgres-tool-export.json', 'r') as f:
 for tool in tools_export:
     if tool['id'] == 'postgres_database_tool':
         tool['content'] = current_tool_content
+        # Update the timestamp to current time - this ensures the tool is detected as changed
+        tool['updated_at'] = int(time.time())
         print(f"Updated tool: {tool['name']}")
+        print(f"New timestamp: {tool['updated_at']}")
         break
 
 # Write back the updated export

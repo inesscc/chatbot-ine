@@ -196,15 +196,17 @@ class Tools:
 
             # Indicator descriptions
             indicator_descriptions = {
-                "tasa_desocupacion": "Unemployment rate",
-                "tasa_ocupacion": "Employment rate",
-                "tasa_participacion": "Labor force participation rate",
-                "personas_fuerza_trabajo": "People in workforce",
-                "poblacion_edad_trabajar": "Working age population",
-                "percepcion_aumento_delincuencia_pais": "Perception of crime increase in the country",
-                "victimizacion_hogares_delitos_mayor_connotacion_social": "Household victimization - major social crimes",
-                "victimizacion_hogares_delitos_violentos": "Household victimization - violent crimes",
-                "victimizacion_personas_delitos_violentos": "Personal victimization - violent crimes",
+                "tasa_desocupacion": "Tasa de desocupación",
+                "tasa_ocupacion": "Tasa de ocupación",
+                "tasa_participacion": "Tasa de participación laboral",
+                "personas_fuerza_trabajo": "Personas en la fuerza de trabajo",
+                "personas_edad_trabajar": "Población en edad de trabajar",
+                "personas_ocupadas": "Población ocupada",
+                "personas_desocupadas": "Población desocupada",
+                "percepcion_aumento_delincuencia_pais": "Percepción de aumento de la delincuencia en el país",
+                "victimizacion_hogares_delitos_mayor_connotacion_social": "Victimización de hogares por delitos de mayor connotación social",
+                "victimizacion_hogares_delitos_violentos": "Victimización de hogares por delitos violentos",
+                "victimizacion_personas_delitos_violentos": "Victimización de personas por delitos violentos",
             }
 
             with psycopg2.connect(
@@ -343,12 +345,13 @@ class Tools:
                         WHERE grupo = 'region' AND valor_grupo IS NOT NULL
                         ORDER BY valor_grupo
                     """)
-                    region_values = [row[0] for row in cur.fetchall()]
+                    
 
                     grouping_dimensions = {}
-                    if sexo_values:
+                    if 'sexo' in [g['type'] for g in groupings]:
                         grouping_dimensions["sexo"] = sexo_values
-                    if region_values:
+                    if 'region' in [g['type'] for g in groupings]:
+                        region_values = [row[0] for row in cur.fetchall()]
                         grouping_dimensions["region"] = region_values
 
             # Build natural language summary
@@ -372,7 +375,7 @@ class Tools:
                     summary_lines.append(
                         f"  - {ind['name']}: {ind['description']}. "
                         f"Data from {ind['time_coverage']['min_year']}-{ind['time_coverage']['max_year']}. "
-                        f"Available {freqs}. Groupings: {', '.join(grouping_types)}"
+                        #f"Available {freqs}. Groupings: {', '.join(grouping_types)}"
                     )
                 summary_lines.append("")
 
@@ -384,16 +387,17 @@ class Tools:
                     summary_lines.append(
                         f"  - {ind['name']}: {ind['description']}. "
                         f"Data from {ind['time_coverage']['min_year']}-{ind['time_coverage']['max_year']}. "
-                        f"Available {freqs}. Groupings: {', '.join(grouping_types)}"
+                        #f"Available {freqs}. Groupings: {', '.join(grouping_types)}"
                     )
                 summary_lines.append("")
 
-            summary_lines.append("Key SQL Patterns:")
-            summary_lines.append("  - For national/total data: grupo IS NULL AND valor_grupo IS NULL")
-            summary_lines.append("  - For sex-disaggregated data: grupo='sexo' AND valor_grupo IN ('hombre', 'mujer')")
-            summary_lines.append("  - For regional data: grupo='region' AND valor_grupo IN (region names like 'Metropolitana', 'Valparaíso', etc.)")
-            summary_lines.append("  - For monthly data: frecuencia='mensual' AND mes IS NOT NULL")
-            summary_lines.append("  - For annual data: frecuencia='anual' AND mes IS NULL")
+            if indicator_name:
+                summary_lines.append("Key SQL Patterns:")
+                summary_lines.append("  - For national/total data: grupo IS NULL AND valor_grupo IS NULL")
+                summary_lines.append("  - For sex-disaggregated data: grupo='sexo' AND valor_grupo IN ('hombre', 'mujer')")
+                summary_lines.append("  - For regional data: grupo='region' AND valor_grupo IN (region names like 'Metropolitana', 'Valparaíso', etc.)")
+                summary_lines.append("  - For monthly data: frecuencia='mensual'")
+                summary_lines.append("  - For annual data: frecuencia='anual'")
 
             summary = "\n".join(summary_lines)
 
@@ -404,6 +408,9 @@ class Tools:
                 "indicators": indicators_metadata,
                 "grouping_dimensions": grouping_dimensions
             }
+
+            if not indicator_name:
+                result = result["summary"]
 
             formatted_result = json.dumps(result, indent=2, default=str)
 
@@ -704,7 +711,7 @@ async def test_tool():
 
     for query in test_queries:
         print(f"\n--- Testing: {query} ---")
-        res1 = await tool.get_indicator_metadata()
+        res1 = await tool.get_indicator_metadata(indicator_name=None)
         result = await tool.execute_query(query)
         print(result)
 
