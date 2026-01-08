@@ -16,3 +16,5 @@ data/
 ollama_models/
 legacy_data/
 notebooks/
+hf_models/
+db.session.sql

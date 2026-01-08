@@ -403,7 +403,7 @@ class Tools:
 
             # Build final result
             result = {
-                "table_name": table_name,
+                #"table_name": table_name,
                 "summary": summary,
                 "indicators": indicators_metadata,
                 "grouping_dimensions": grouping_dimensions
@@ -674,6 +674,9 @@ class Tools:
                         # This should never happen after a successful execute, but satisfies type checker
                         results = [list(row) for row in rows]
                     
+                    if results == []:
+                        results = [{"message": "Query didn't return any results. Try get_indicator_metadata to see available\
+                                     indicators and groupings for each indicator"}]
                     results.append({'used_query': safe_query})
                     
                     formatted_results = json.dumps(results, indent=2, default=str)
@@ -703,7 +706,7 @@ async def test_tool():
 
     # Test queries
     test_queries = [
-        "Show me all users",
+        "proporción de hogares victimizados por delitos violentos en la región de Tarapacá durante julio de 2023",
         "What categories do we have?",
         "Show me products with their categories",
         "How many orders are there?",
@@ -711,7 +714,7 @@ async def test_tool():
 
     for query in test_queries:
         print(f"\n--- Testing: {query} ---")
-        res1 = await tool.get_indicator_metadata(indicator_name=None)
+        #res1 = await tool.get_indicator_metadata(indicator_name='victimizacion_hogares_delitos_violentos')
         result = await tool.execute_query(query)
         print(result)
 

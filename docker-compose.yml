@@ -16,6 +16,7 @@ services:
       - ./models-export.json:/app/models-export.json:ro
       - ./import_tools.py:/app/import_tools.py:ro
       - ./start_with_tools.sh:/app/start_with_tools.sh:ro
+      - ./hf_models:/app/backend/hf_models:ro
     restart: unless-stopped
     deploy:
       resources:

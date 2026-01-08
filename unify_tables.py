@@ -63,6 +63,7 @@ df_total.loc[filter_regs, 'valor_grupo' ] = df_total.loc[filter_regs, ].valor_gr
 output_path = data_dir / 'current/total_unificado.parquet'
 df_total.indicador.unique()
 df_total[df_total.indicador == 'fuerza_trabajo']
+df_total = df_total[df_total.grupo.ne('nse')] # Quitamos nse
 df_total.to_parquet(output_path, index=False)
 
 print(f"✅ Unified table saved to: {output_path}")
