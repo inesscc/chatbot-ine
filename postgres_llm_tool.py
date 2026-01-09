@@ -497,7 +497,7 @@ class Tools:
 
         Query Guidelines:
         - NEVER use = NULL or != NULL. ALWAYS use IS NULL or IS NOT NULL for NULL comparisons
-        - NEVER use aggregating functions like SUM or COUNT
+        - You might only use aggregating functions like SUM or COUNT to aggregate data for a year if you have only monthly data available.
         - When comparing groups, use appropriate WHERE conditions on grupo and valor_grupo
         - Remember that NULL values require IS NULL / IS NOT NULL operators
 
@@ -714,8 +714,8 @@ async def test_tool():
 
     for query in test_queries:
         print(f"\n--- Testing: {query} ---")
-        #res1 = await tool.get_indicator_metadata(indicator_name='victimizacion_hogares_delitos_violentos')
-        result = await tool.execute_query(query)
+        res1 = await tool.get_indicator_metadata(indicator_name='victimizacion_personas_delitos_violentos')
+        #result = await tool.execute_query(query)
         print(result)
 
 
