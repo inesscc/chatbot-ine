@@ -35,6 +35,8 @@ services:
       POSTGRES_USER: toyuser
       POSTGRES_PASSWORD: toypass
       OLLAMA_HOST: 0.0.0.0
+    env_file:
+      - .env  # Load LLM configuration from .env
     networks:
       - webui-net
 

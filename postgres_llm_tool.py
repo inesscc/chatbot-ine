@@ -26,6 +26,8 @@ import httpx
 import requests
 import asyncio
 import psycopg2
+import os
+from abc import ABC, abstractmethod
 
 
 def validate_sql(sql_query: str, allowed_tables=None, max_limit=100) -> str:
@@ -116,6 +118,252 @@ class EventEmitter:
 
 # Allowed tables in your database schema
 ALLOWED_TABLES = ["total_unificado"]
+
+
+# ==============================================================================
+# LLM Provider Configuration and Classes
+# ==============================================================================
+
+def get_llm_provider_config() -> dict:
+    """
+    Load and validate LLM provider configuration from environment variables.
+
+    Returns:
+        dict: Configuration dictionary with provider, base_url, model, api_key, headers
+
+    Raises:
+        ValueError: If provider is invalid or required API key is missing
+    """
+    provider = os.getenv('LLM_SERVICE', 'ollama').lower()
+
+    if provider == 'ollama':
+        return {
+            'provider': 'ollama',
+            'base_url': os.getenv('OLLAMA_URL', 'http://localhost:11434'),
+            'model': os.getenv('OLLAMA_MODEL'),  # None = auto-detect
+            'api_key': None,
+            'headers': {'Content-Type': 'application/json'}
+        }
+
+    elif provider == 'openrouter':
+        api_key = os.getenv('OPENROUTER_API_KEY')
+        if not api_key:
+            raise ValueError("OPENROUTER_API_KEY environment variable required for OpenRouter provider")
+
+        return {
+            'provider': 'openrouter',
+            'base_url': 'https://openrouter.ai/api/v1',
+            'model': os.getenv('OPENROUTER_MODEL', 'meta-llama/llama-3.3-70b-instruct'),
+            'api_key': api_key,
+            'headers': {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+        }
+
+    elif provider == 'openai':
+        api_key = os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable required for OpenAI provider")
+
+        return {
+            'provider': 'openai',
+            'base_url': 'https://api.openai.com/v1',
+            'model': os.getenv('OPENAI_MODEL', 'gpt-5-mini'),
+            'api_key': api_key,
+            'headers': {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+        }
+
+    elif provider == 'groq':
+        api_key = os.getenv('GROQ_API_KEY')
+        if not api_key:
+            raise ValueError("GROQ_API_KEY environment variable required for Groq provider")
+
+        return {
+            'provider': 'groq',
+            'base_url': 'https://api.groq.com/openai/v1',
+            'model': os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile'),
+            'api_key': api_key,
+            'headers': {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+        }
+
+    else:
+        raise ValueError(
+            f"Unknown LLM_SERVICE: {provider}. Must be one of: ollama, openrouter, openai, groq"
+        )
+
+
+class LLMProvider(ABC):
+    """Abstract base class for LLM providers"""
+
+    def __init__(self, config: dict):
+        self.config = config
+
+    @abstractmethod
+    async def generate_sql(self, prompt: str, emitter: EventEmitter) -> str:
+        """Generate SQL from natural language prompt"""
+        pass
+
+    def list_models(self) -> list[str]:
+        """Optional: Return available models"""
+        return [self.config.get('model', 'unknown')]
+
+
+class OllamaProvider(LLMProvider):
+    """Ollama provider implementation"""
+
+    def __init__(self, config: dict):
+        super().__init__(config)
+        self.base_url = config['base_url']
+
+    def list_models(self) -> list[str]:
+        """Fetch models from /api/ps endpoint"""
+        try:
+            response = requests.get(f"{self.base_url}/api/ps", timeout=5)
+            response.raise_for_status()
+            models_data = response.json().get("models", [])
+            model_names = [m.get("name") for m in models_data if "name" in m]
+            if model_names:
+                return model_names
+        except Exception as e:
+            print(f"DEBUG: Failed to fetch Ollama models: {e}")
+
+        # Fallback to config or default
+        return [self.config.get('model') or 'llama3']
+
+    async def generate_sql(self, prompt: str, emitter: EventEmitter) -> str:
+        """Generate using Ollama /api/generate endpoint"""
+        # Get model - use config if provided, otherwise auto-detect
+        model = self.config.get('model') or self.list_models()[0]
+
+        payload = {
+            "model": model,
+            "prompt": prompt,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                async with client.stream(
+                    'POST',
+                    f"{self.base_url}/api/generate",
+                    json=payload,
+                ) as response:
+                    response.raise_for_status()
+
+                    sql_query = ""
+                    async for line in response.aiter_lines():
+                        try:
+                            chunk = json.loads(line)
+                            content = chunk.get("response", "")
+                            sql_query += content
+
+                            await emitter.emit(
+                                content=f"Respuesta parcial: {content}",
+                                status="sql_generation_in_progress",
+                                done=False,
+                            )
+
+                            if chunk.get("done", False):
+                                break
+                        except json.JSONDecodeError:
+                            continue
+
+                return sql_query
+        except Exception as e:
+            raise Exception(f"Ollama generation failed: {e}")
+
+
+class OpenAICompatibleProvider(LLMProvider):
+    """OpenAI-compatible provider implementation (OpenAI, OpenRouter, Groq)"""
+
+    def __init__(self, config: dict):
+        super().__init__(config)
+        self.base_url = config['base_url']
+        self.headers = config['headers']
+        self.model = config['model']
+
+    async def generate_sql(self, prompt: str, emitter: EventEmitter) -> str:
+        """Generate using OpenAI-compatible /chat/completions endpoint"""
+        prompt = prompt + '\nRespond ONLY with the SQL SELECT command, no additional text or formatting is permitted.'
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "stream": True
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                async with client.stream(
+                    'POST',
+                    f"{self.base_url}/chat/completions",
+                    headers=self.headers,
+                    json=payload,
+                ) as response:
+                    response.raise_for_status()
+
+                    sql_query = ""
+                    async for line in response.aiter_lines():
+                        # Skip empty lines
+                        if not line.strip():
+                            continue
+
+                        # Remove 'data: ' prefix for SSE format
+                        if line.startswith('data: '):
+                            line = line[6:]
+
+                        # Check for done signal
+                        if line.strip() == '[DONE]':
+                            break
+
+                        try:
+                            data = json.loads(line)
+
+                            # Extract content from delta or message
+                            if 'choices' in data and len(data['choices']) > 0:
+                                choice = data['choices'][0]
+
+                                # Try delta first (streaming)
+                                if 'delta' in choice and 'content' in choice['delta']:
+                                    content = choice['delta']['content']
+                                # Fall back to message (non-streaming)
+                                elif 'message' in choice and 'content' in choice['message']:
+                                    content = choice['message']['content']
+                                else:
+                                    continue
+
+                                sql_query += content
+
+                                await emitter.emit(
+                                    content=f"Respuesta parcial: {content}",
+                                    status="sql_generation_in_progress",
+                                    done=False,
+                                )
+                        except json.JSONDecodeError:
+                            continue
+
+                    return sql_query
+        except Exception as e:
+            raise Exception(f"{self.config['provider']} generation failed: {e}")
+
+
+def create_llm_provider() -> LLMProvider:
+    """Factory function to create appropriate LLM provider based on environment"""
+    config = get_llm_provider_config()
+    provider_name = config['provider']
+
+    if provider_name == 'ollama':
+        return OllamaProvider(config)
+    else:
+        # openrouter, openai, groq all use OpenAI-compatible API
+        return OpenAICompatibleProvider(config)
 
 
 class Tools:
@@ -507,97 +755,27 @@ class Tools:
         Reply ONLY with the SQL SELECT command, no additional text is permitted.
         """
 
-        # Step 1: Get the available models from Ollama
-        ollama_url = "http://localhost:11434"
-        url = f"{ollama_url}/api/ps"
-
+        # Use the provider-based approach for multi-LLM support
         try:
-            # Make the request to fetch models
-            response = requests.get(url)
-            response.raise_for_status()  # Raise an exception for HTTP errors
-
-            # Parse the JSON response
-            models_data = response.json().get("models", [])
-
-            # Extract model names and select the first available model
-            model_names = [
-                model.get("name") for model in models_data if "name" in model
-            ]
-            if not model_names:
-                raise ValueError("No models available on the Ollama server.")
-            model = model_names[0]
-
-        except requests.RequestException as e:
             await emitter.emit(
-                description=f"Error fetching models from Ollama: {e}",
-                status="model_fetch_error",
-                done=True,
+                description="Inicializando proveedor LLM...",
+                status="initializing",
+                done=False,
             )
-            return f"Error fetching models from Ollama: {e}"
-        except ValueError as e:
+
+            # Create provider based on environment configuration
+            provider = create_llm_provider()
+
             await emitter.emit(
-                description=f"Error parsing models response: {e}",
-                status="model_parse_error",
-                done=True,
-            )
-            return f"Error parsing models response: {e}"
-
-        # Step 2: Prepare the payload for generating the SQL query
-        payload = {
-            "model": model,  # Model name
-            "prompt": prompt,  # Prompt to send to Ollama
-        }
-
-        headers = {"Content-Type": "application/json"}
-
-        async def send_request():
-            """
-            Asynchronous function to handle streaming response from the LLM.
-            """
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{ollama_url}/api/generate",
-                    headers=headers,
-                    json=payload,
-                )
-                response.raise_for_status()  # Raise an error for bad responses
-
-                sql_query = ""  # Concatenate response chunks here
-                async for line in response.aiter_lines():
-                    try:
-                        # Parse each line as a JSON object
-                        chunk = json.loads(line)
-                        sql_query += chunk.get("response", "")
-
-                        # Emit progress for debugging or user feedback
-                        await emitter.emit(
-                            content=f"Respuesta parcial recibida: {chunk.get('response', '')}",
-                            status="sql_generation_in_progress",
-                            done=False,
-                        )
-
-                        # Break if the stream indicates completion
-                        if chunk.get("done", False):
-                            break
-                    except json.JSONDecodeError as e:
-                        await emitter.emit(
-                            description=f"Error procesando JSON en streaming: {e}",
-                            status="json_parse_error",
-                            done=True,
-                        )
-                        return f"Error procesando JSON en streaming: {e}"
-                return sql_query
-
-        try:
-            # Use asyncio to run the asynchronous request
-            await emitter.emit(
-                description="Generando comando SQL a partir de la consulta en lenguaje natural...",
+                description=f"Generando SQL usando {provider.config['provider']}...",
                 status="sql_generation_in_progress",
                 done=False,
             )
 
-            sql_query = await send_request()
-            if not sql_query:
+            # Generate SQL using the provider
+            sql_query = await provider.generate_sql(prompt, emitter)
+
+            if not sql_query or not sql_query.strip():
                 raise ValueError("No SQL query was returned by the LLM.")
 
             await emitter.emit(
@@ -606,7 +784,24 @@ class Tools:
                 done=True,
             )
 
-            return sql_query  # Return the SQL query
+            return sql_query
+
+        except ValueError as e:
+            # Configuration errors or empty responses
+            await emitter.emit(
+                description=f"Error de configuración: {e}",
+                status="config_error",
+                done=True,
+            )
+            return f"Error de configuración: {e}"
+        except httpx.HTTPStatusError as e:
+            # HTTP errors (401, 403, 429, etc.)
+            await emitter.emit(
+                description=f"Error de API: {e.response.status_code} - {e.response.text[:200]}",
+                status="api_error",
+                done=True,
+            )
+            return f"Error de API: {e.response.status_code}"
         except Exception as e:
             await emitter.emit(
                 description=f"Error al instruir al LLM para generar SQL: {e}",
