@@ -60,12 +60,13 @@ df_total.grupo
 df_total.loc[filter_regs, 'valor_grupo' ] = df_total.loc[filter_regs, ].valor_grupo.map(mapa_regiones)
 
 
+
 output_path = data_dir / 'current/total_unificado.parquet'
 df_total.indicador.unique()
 df_total[df_total.indicador == 'fuerza_trabajo']
 df_total = df_total[df_total.grupo.ne('nse')] # Quitamos nse
 df_total.to_parquet(output_path, index=False)
-
+df_total[df_total.grupo.eq('region')].indicador.value_counts()
 print(f"✅ Unified table saved to: {output_path}")
 print(f"\nShape: {df_ene.shape}")
 print(f"\nColumns: {df_ene.columns.tolist()}")

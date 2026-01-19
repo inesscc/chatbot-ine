@@ -10,7 +10,7 @@ pruebas/
 # Virtual environments
 .venv
 .vscode
-.env
+.env*
 .webui_secret_key
 data/
 ollama_models/
