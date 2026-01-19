@@ -374,13 +374,17 @@ class Tools:
         """
         Get database configuration with fallback for different environments.
         Tries container name first (for running inside Docker), then localhost.
+        Reads POSTGRES_HOST from environment to support db-prod and db-dev.
         """
+        # Get host from environment variable (db-prod or db-dev), fallback to toy-postgres
+        container_host = os.getenv("POSTGRES_HOST", "toy-postgres")
+
         configs = [
             {
                 "dbname": "toydb",
                 "user": "readonly_user",
                 "password": "readonly_password",
-                "host": "toy-postgres",  # Container name
+                "host": container_host,  # db-prod or db-dev from environment
                 "port": "5432",  # Internal container port
             },
             {
@@ -388,7 +392,14 @@ class Tools:
                 "user": "readonly_user",
                 "password": "readonly_password",
                 "host": "localhost",  # External host
-                "port": "5438",  # Mapped port
+                "port": "5438",  # Mapped port for prod
+            },
+            {
+                "dbname": "toydb",
+                "user": "readonly_user",
+                "password": "readonly_password",
+                "host": "localhost",  # External host
+                "port": "5439",  # Mapped port for dev
             },
         ]
 
