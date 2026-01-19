@@ -1,19 +1,21 @@
 
 services:
-  open-webui:
+  # PRODUCTION ENVIRONMENT
+  open-webui-prod:
     build:
       context: .
       dockerfile: Dockerfile.openwebui
-    container_name: open-webui
+    container_name: open-webui-prod
     ports:
       - "3030:8080"
       - "11434:11434"
     volumes:
-      - open-webui:/app/backend/data
+      - open-webui-prod:/app/backend/data
       - ./ollama_models:/root/.ollama
       # Mount configuration files for hot-reload on restart
       - ./postgres-tool-export.json:/app/postgres-tool-export.json:ro
       - ./models-export.json:/app/models-export.json:ro
+      - ./config-export.json:/app/config-export.json:ro
       - ./import_tools.py:/app/import_tools.py:ro
       - ./start_with_tools.sh:/app/start_with_tools.sh:ro
       - ./hf_models:/app/backend/hf_models:ro
@@ -26,26 +28,28 @@ services:
               count: all
               capabilities: [gpu]
     depends_on:
-      - db
+      - db-prod
     environment:
-      # Example environment vars for connecting to Postgres
-      POSTGRES_HOST: db
+      POSTGRES_HOST: db-prod
       POSTGRES_PORT: 5432
       POSTGRES_DB: toydb
       POSTGRES_USER: toyuser
       POSTGRES_PASSWORD: toypass
       OLLAMA_HOST: 0.0.0.0
+      OPENAI_API_BASE_URLS: https://api.openai.com/v1;https://api.groq.com/openai/v1
+      OPENAI_API_KEYS: ${OPENAI_API_KEY};${GROQ_API_KEY}
     env_file:
-      - .env  # Load LLM configuration from .env
+      - .env
     networks:
       - webui-net
+    profiles:
+      - prod
 
-
-  db:
+  db-prod:
     build:
       context: .
       dockerfile: Dockerfile.postgres
-    container_name: toy-postgres
+    container_name: toy-postgres-prod
     restart: unless-stopped
     environment:
       POSTGRES_DB: toydb
@@ -56,10 +60,77 @@ services:
     networks:
       - webui-net
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      # Mount data and scripts for hot-reload on restart
+      - pgdata-prod:/var/lib/postgresql/data
       - ./data:/data:ro
       - ./load_parquet_to_db_auto.py:/scripts/load_parquet_to_db_auto.py:ro
+    profiles:
+      - prod
+
+  # DEVELOPMENT ENVIRONMENT
+  open-webui-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.openwebui
+    container_name: open-webui-dev
+    ports:
+      - "3031:8080"
+      - "11435:11434"
+    volumes:
+      - open-webui-dev:/app/backend/data
+      - ./ollama_models:/root/.ollama
+      # Mount configuration files for hot-reload on restart
+      - ./postgres-tool-export.json:/app/postgres-tool-export.json:ro
+      - ./models-export.json:/app/models-export.json:ro
+      - ./config-export.json:/app/config-export.json:ro
+      - ./import_tools.py:/app/import_tools.py:ro
+      - ./start_with_tools.sh:/app/start_with_tools.sh:ro
+      - ./hf_models:/app/backend/hf_models:ro
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    depends_on:
+      - db-dev
+    environment:
+      POSTGRES_HOST: db-dev
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: toydb
+      POSTGRES_USER: toyuser
+      POSTGRES_PASSWORD: toypass
+      OLLAMA_HOST: 0.0.0.0
+      OPENAI_API_BASE_URLS: https://api.openai.com/v1;https://api.groq.com/openai/v1
+      OPENAI_API_KEYS: ${OPENAI_API_KEY};${GROQ_API_KEY}
+    env_file:
+      - .env-dev
+    networks:
+      - webui-net
+    profiles:
+      - dev
+
+  db-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    container_name: toy-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: toydb
+      POSTGRES_USER: toyuser
+      POSTGRES_PASSWORD: toypass
+    ports:
+      - "5439:5432"
+    networks:
+      - webui-net
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+      - ./data:/data:ro
+      - ./load_parquet_to_db_auto.py:/scripts/load_parquet_to_db_auto.py:ro
+    profiles:
+      - dev
   # watchtower:
   #   image: containrrr/watchtower
   #   volumes:
@@ -68,8 +139,10 @@ services:
   #   depends_on:
   #     - open-webui
 volumes:
-  open-webui:
-  pgdata:
+  open-webui-prod:
+  open-webui-dev:
+  pgdata-prod:
+  pgdata-dev:
 
 
 networks:
