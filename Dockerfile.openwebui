@@ -1,4 +1,4 @@
-FROM ghcr.io/open-webui/open-webui:ollama
+FROM ghcr.io/open-webui/open-webui:ollama AS base
 #FROM dyrnq/open-webui:ollama
 # Copy the import script, startup script, and export files
 COPY import_tools.py /app/import_tools.py
@@ -8,6 +8,24 @@ COPY models-export.json /app/models-export.json
 
 # Make scripts executable
 RUN chmod +x /app/import_tools.py /app/start_with_tools.sh
+
+# ---------- prod ----------
+FROM base AS prod
+
+
+COPY config-export-prod.json /app/config-export.json
+
+ENV ENV=prod
+
+CMD ["/app/start_with_tools.sh"]
+
+# ---------- dev ----------
+FROM base AS dev
+
+
+COPY config-export-dev.json /app/config-export.json
+
+ENV ENV=dev
 
 # Use our custom startup script
 CMD ["/app/start_with_tools.sh"]

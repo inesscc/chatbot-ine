@@ -2,7 +2,7 @@
 set -e
 
 echo "🚀 Starting Open WebUI with automatic tool import..."
-
+echo "Running in $ENV" 
 # Start Open WebUI in the background
 echo "📦 Starting Open WebUI backend..."
 /app/backend/start.sh &

@@ -5,7 +5,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.openwebui
+      target: prod
     container_name: open-webui-prod
+   
     ports:
       - "3030:8080"
       - "11434:11434"
@@ -13,11 +15,7 @@ services:
       - open-webui-prod:/app/backend/data
       - ./ollama_models:/root/.ollama
       # Mount configuration files for hot-reload on restart
-      - ./postgres-tool-export.json:/app/postgres-tool-export.json:ro
-      - ./models-export.json:/app/models-export.json:ro
-      - ./config-export-prod.json:/app/config-export.json:ro
-      - ./import_tools.py:/app/import_tools.py:ro
-      - ./start_with_tools.sh:/app/start_with_tools.sh:ro
+
       - ./hf_models:/app/backend/hf_models:ro
     restart: unless-stopped
     deploy:
@@ -71,6 +69,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.openwebui
+      target: dev
     container_name: open-webui-dev
     ports:
       - "3031:8080"
