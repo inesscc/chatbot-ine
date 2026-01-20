@@ -29,6 +29,9 @@ import psycopg2
 import os
 from abc import ABC, abstractmethod
 
+from pydantic import BaseModel, Field
+from typing import Literal
+
 
 def validate_sql(sql_query: str, allowed_tables=None, max_limit=100) -> str:
     """
@@ -367,7 +370,24 @@ def create_llm_provider() -> LLMProvider:
 
 
 class Tools:
+
+    class Valves(BaseModel):
+
+        # To give the user the choice between multiple strings, you can use Literal from typing:
+        openrouter_model: Literal["qwen/qwen3-next-80b-a3b-instruct", "deepseek/deepseek-v3.2",
+                                  "openai/gpt-oss-120b"] = Field(
+           default="openai/gpt-oss-120b",
+           description="Modelo a utilizar para uso interno de herramientas",
+       )
+        
+        pass
+
+
+
     def __init__(self):
+
+        self.valves = self.Valves()
+
         pass
 
     def get_db_config(self):
@@ -449,7 +469,7 @@ class Tools:
                 status="fetching_metadata",
                 done=False,
             )
-
+            print(self.valves.choice_option)
             db_config = self.get_db_config()
             indicators_metadata = []
 
@@ -616,15 +636,17 @@ class Tools:
             # Build natural language summary
             summary_lines = ["Available Indicators:\n"]
 
+            nombre_indicadores_empleo = ["tasa_desocupacion", "tasa_ocupacion",
+                                                         "tasa_participacion", "personas_fuerza_trabajo",
+                                                         "poblacion_edad_trabajar", "personas_desocupadas",
+                                                         "personas_ocupadas",
+                                                         "personas_edad_trabajar"]
+
             # Group by category
             employment_indicators = [ind for ind in indicators_metadata
-                                      if ind["name"] in ["tasa_desocupacion", "tasa_ocupacion",
-                                                         "tasa_participacion", "personas_fuerza_trabajo",
-                                                         "poblacion_edad_trabajar"]]
+                                      if ind["name"] in nombre_indicadores_empleo]
             crime_indicators = [ind for ind in indicators_metadata
-                                if ind["name"] not in ["tasa_desocupacion", "tasa_ocupacion",
-                                                       "tasa_participacion", "personas_fuerza_trabajo",
-                                                       "poblacion_edad_trabajar"]]
+                                if ind["name"] not in nombre_indicadores_empleo]
 
             if employment_indicators:
                 summary_lines.append("Employment Indicators (ENE):")
@@ -634,7 +656,7 @@ class Tools:
                     summary_lines.append(
                         f"  - {ind['name']}: {ind['description']}. "
                         f"Data from {ind['time_coverage']['min_year']}-{ind['time_coverage']['max_year']}. "
-                        #f"Available {freqs}. Groupings: {', '.join(grouping_types)}"
+                        f"Available {freqs}. Groupings: {', '.join(grouping_types)}"
                     )
                 summary_lines.append("")
 
@@ -646,7 +668,7 @@ class Tools:
                     summary_lines.append(
                         f"  - {ind['name']}: {ind['description']}. "
                         f"Data from {ind['time_coverage']['min_year']}-{ind['time_coverage']['max_year']}. "
-                        #f"Available {freqs}. Groupings: {', '.join(grouping_types)}"
+                        f"Available {freqs}. Groupings: {', '.join(grouping_types)}"
                     )
                 summary_lines.append("")
 
@@ -920,7 +942,7 @@ async def test_tool():
 
     for query in test_queries:
         print(f"\n--- Testing: {query} ---")
-        res1 = await tool.get_indicator_metadata(indicator_name='victimizacion_personas_delitos_violentos')
+        res1 = await tool.get_indicator_metadata(indicator_name=None)
         #result = await tool.execute_query(query)
         print(result)
 

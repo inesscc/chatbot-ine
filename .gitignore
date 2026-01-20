@@ -5,12 +5,12 @@ build/
 dist/
 wheels/
 *.egg-info
-CLAUDE.md
 pruebas/
 # Virtual environments
 .venv
 .vscode
 .env*
+CLAUDE.md
 .webui_secret_key
 data/
 ollama_models/

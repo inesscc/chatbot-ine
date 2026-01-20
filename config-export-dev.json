@@ -1,0 +1,53 @@
+{
+  "version": 0,
+  "ui": {
+    "enable_signup": true
+  },
+  "openai": {
+    "enable": true,
+    "api_base_urls": [
+      "https://api.openai.com/v1",
+      "https://api.groq.com/openai/v1",
+      "https://openrouter.ai/api/v1"
+    ],
+    "api_keys": [
+      "${OPENAI_API_KEY}",
+      "${GROQ_API_KEY}",
+      "${OPENROUTER_API_KEY}"
+    ],
+    "api_configs": {
+      "0": {
+        "enable": true,
+        "tags": [],
+        "prefix_id": "",
+        "model_ids": [
+          "gpt-5-mini"
+        ],
+        "connection_type": "external",
+        "auth_type": "bearer"
+      },
+      "1": {
+        "enable": true,
+        "tags": [],
+        "prefix_id": "",
+        "model_ids": [
+          "openai/gpt-oss-120b",
+          "llama-3.3-70b-versatile"
+        ],
+        "connection_type": "external",
+        "auth_type": "bearer"
+      },
+      "2": {
+        "enable": true,
+        "tags": [],
+        "prefix_id": "",
+        "model_ids": [
+
+          "qwen/qwen3-next-80b-a3b-instruct"
+        ],
+        "connection_type": "external",
+        "auth_type": "bearer"
+      }
+    }
+  }
+}

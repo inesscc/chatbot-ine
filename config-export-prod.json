@@ -34,6 +34,17 @@
         ],
         "connection_type": "external",
         "auth_type": "bearer"
+      },
+      "2": {
+        "enable": true,
+        "tags": [],
+        "prefix_id": "",
+        "model_ids": [
+          "qwen/qwen3-next-80b-a3b-instruct:free",
+          "qwen/qwen3-next-80b-a3b-instruct"
+        ],
+        "connection_type": "external",
+        "auth_type": "bearer"
       }
     }
   }
