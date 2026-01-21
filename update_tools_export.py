@@ -15,7 +15,7 @@ with open('postgres_llm_tool.py', 'r') as f:
     current_tool_content = f.read()
 
 # Read the existing tools export
-with open('postgres-tool-export.json', 'r') as f:
+with open('exports/postgres-tool-export.json', 'r') as f:
     tools_export = json.load(f)
 
 # Update the postgres tool content
@@ -29,7 +29,7 @@ for tool in tools_export:
         break
 
 # Write back the updated export
-with open('postgres-tool-export.json', 'w') as f:
+with open('exports/postgres-tool-export.json', 'w') as f:
     json.dump(tools_export, f, indent=2)
 
-print("✅ postgres-tool-export.json updated successfully!")
+print("✅ exports/postgres-tool-export.json updated successfully!")

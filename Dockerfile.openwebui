@@ -3,8 +3,7 @@ FROM ghcr.io/open-webui/open-webui:ollama AS base
 # Copy the import script, startup script, and export files
 COPY import_tools.py /app/import_tools.py
 COPY start_with_tools.sh /app/start_with_tools.sh
-COPY postgres-tool-export.json /app/postgres-tool-export.json
-COPY models-export.json /app/models-export.json
+COPY exports/ /app/exports/
 
 # Make scripts executable
 RUN chmod +x /app/import_tools.py /app/start_with_tools.sh
@@ -12,8 +11,8 @@ RUN chmod +x /app/import_tools.py /app/start_with_tools.sh
 # ---------- prod ----------
 FROM base AS prod
 
-
-COPY config-export-prod.json /app/config-export.json
+COPY exports/config-export-prod.json /app/exports/config-export.json
+COPY exports/models-export-prod.json /app/exports/models-export.json
 
 ENV ENV=prod
 
@@ -23,7 +22,7 @@ CMD ["/app/start_with_tools.sh"]
 FROM base AS dev
 
 
-COPY config-export-dev.json /app/config-export.json
+COPY exports/config-export-dev.json /app/exports/config-export.json
 
 ENV ENV=dev
 

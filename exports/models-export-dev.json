@@ -1,0 +1,135 @@
+[
+  {
+    "id": "qwen/qwen3-32b",
+    "name": "qwen/qwen3-32b",
+    "owned_by": "openai",
+    "openai": {
+      "id": "qwen/qwen3-32b",
+      "name": "qwen/qwen3-32b",
+      "owned_by": "openai",
+      "openai": {
+        "id": "qwen/qwen3-32b"
+      },
+      "urlIdx": 0,
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "connection_type": "external",
+    "user_id": "6d9e26c5-0b81-4b32-ad8f-8e6d1cc1c0af",
+    "base_model_id": null,
+    "params": {
+      "function_calling": "native"
+    },
+    "meta": {
+      "profile_image_url": "/static/favicon.png",
+      "description": null,
+      "capabilities": {
+        "file_context": true,
+        "vision": true,
+        "file_upload": true,
+        "web_search": true,
+        "image_generation": true,
+        "code_interpreter": true,
+        "citations": true,
+        "status_updates": true,
+        "builtin_tools": true
+      },
+      "suggestion_prompts": null,
+      "tags": [],
+      "toolIds": ["postgres_database_tool"]
+    },
+    "access_control": {},
+    "is_active": true,
+    "updated_at": 1768854240,
+    "created_at": 1768854240
+  },
+  {
+    "id": "openai/gpt-oss-120b",
+    "name": "custom-gpt-oss-120b",
+    "owned_by": "openai",
+    "openai": {
+      "id": "openai/gpt-oss-120b",
+      "name": "openai/gpt-oss-120b",
+      "owned_by": "openai",
+      "openai": {
+        "id": "openai/gpt-oss-120b"
+      },
+      "urlIdx": 0,
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "connection_type": "external",
+    "user_id": "26e43591-3654-402a-8e0a-18c179c57918",
+    "base_model_id": null,
+    "params": {
+      "reasoning_tags": true,
+      "function_calling": "native"
+    },
+    "meta": {
+      "profile_image_url": "/static/favicon.png",
+      "description": null,
+      "capabilities": {
+        "file_context": true,
+        "vision": true,
+        "file_upload": true,
+        "web_search": true,
+        "image_generation": true,
+        "code_interpreter": true,
+        "citations": true,
+        "status_updates": true,
+        "builtin_tools": true
+      },
+      "suggestion_prompts": null,
+      "tags": [],
+      "toolIds": ["postgres_database_tool"]
+    },
+    "access_control": {},
+    "is_active": true,
+    "updated_at": 1768479637,
+    "created_at": 1768479637
+  },
+  {
+    "id": "deepseek/deepseek-v3.2",
+    "name": "deepseek/deepseek-v3.2",
+    "owned_by": "openai",
+    "openai": {
+      "id": "deepseek/deepseek-v3.2",
+      "name": "deepseek/deepseek-v3.2",
+      "owned_by": "openai",
+      "openai": {
+        "id": "deepseek/deepseek-v3.2"
+      },
+      "urlIdx": 0,
+      "connection_type": "external"
+    },
+    "urlIdx": 0,
+    "connection_type": "external",
+    "user_id": "85a0dcd7-add9-488f-8159-9d095ebe8de0",
+    "base_model_id": null,
+    "params": {
+      "function_calling": "native"
+    },
+    "meta": {
+      "profile_image_url": "/static/favicon.png",
+      "description": null,
+      "capabilities": {
+        "file_context": true,
+        "vision": true,
+        "file_upload": true,
+        "web_search": true,
+        "image_generation": true,
+        "code_interpreter": true,
+        "citations": true,
+        "status_updates": true,
+        "builtin_tools": true
+      },
+      "suggestion_prompts": null,
+      "tags": [],
+      "toolIds": ["postgres_database_tool"]
+    },
+    "access_control": {},
+    "is_active": true,
+    "updated_at": 1768940533,
+    "created_at": 1768940533
+  }
+]

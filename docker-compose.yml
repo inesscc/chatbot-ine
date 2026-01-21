@@ -78,12 +78,14 @@ services:
       - open-webui-dev:/app/backend/data
       - ./ollama_models:/root/.ollama
       # Mount configuration files for hot-reload on restart
-      - ./postgres-tool-export.json:/app/postgres-tool-export.json:ro
-      - ./models-export.json:/app/models-export.json:ro
-      - ./config-export-dev.json:/app/config-export.json:ro
+      - ./exports/postgres-tool-export.json:/app/exports/postgres-tool-export.json:ro
+      - ./exports/models-export-dev.json:/app/exports/models-export.json:ro
+      - ./exports/config-export-dev.json:/app/exports/config-export.json:ro
       - ./import_tools.py:/app/import_tools.py:ro
       - ./start_with_tools.sh:/app/start_with_tools.sh:ro
+      - ./system_prompt.md:/app/system_prompt.md:ro
       - ./hf_models:/app/backend/hf_models:ro
+      - ./open-webui/backend/open_webui/config.py:/app/backend/open_webui/config.py
     restart: unless-stopped
     deploy:
       resources:
@@ -101,8 +103,8 @@ services:
       POSTGRES_USER: toyuser
       POSTGRES_PASSWORD: toypass
       OLLAMA_HOST: 0.0.0.0
-      #OPENAI_API_BASE_URLS: https://api.openai.com/v1;https://api.groq.com/openai/v1
-      #OPENAI_API_KEYS: ${OPENAI_API_KEY};${GROQ_API_KEY}
+      #OPENAI_API_BASE_URLS: https://openrouter.ai/api/v1
+      #OPENAI_API_KEYS: ${OPENROUTER_API_KEY}
     env_file:
       - .env-dev
     networks:

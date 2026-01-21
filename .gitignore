@@ -9,6 +9,8 @@ pruebas/
 # Virtual environments
 .venv
 .vscode
+docs/
+open-webui/
 .env*
 CLAUDE.md
 .webui_secret_key

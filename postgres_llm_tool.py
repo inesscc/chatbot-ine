@@ -1,13 +1,11 @@
 """
 title: Postgres Database Tool
 author: Juan Concha (adapted from Joshua Rudy)
-version: 0.0.1
+version: 0.0.2
 license: MIT
 description: A simple tool for interacting with a PostgreSQL database. Ask the model questions and it will take the request
-and pass it as an API call to Ollama to generate a SQL query before executing the query using psycopg2.
-Added safe guards with query validations. Caution should be exercised anyways. Use an adjust as you need.
-I want to take the DB_CONFIG and make it global, it's unnecessary to define twice, but it works for now.
-I intend to take this and work it into a filter function or pipe for RAG and general DB interaction.
+and pass it as an API call to OpenRouter to generate a SQL query before executing the query using psycopg2.
+Added safe guards with query validations. Caution should be exercised anyways. Use and adjust as you need.
 
 This version hardcodes the database schema in the prompt. Could be moved to the system prompt, but haven't
 tested performance in that case.
@@ -15,7 +13,7 @@ tested performance in that case.
 Adapted for docker environment with:
 - toydb database
 - readonly_user for safe queries
-- localhost:5438 connection
+- OpenRouter for SQL generation with configurable models via Valves
 - Updated table whitelist for your schema
 """
 
@@ -23,11 +21,9 @@ import json
 from typing import Callable, Any
 import re
 import httpx
-import requests
 import asyncio
 import psycopg2
 import os
-from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, Field
 from typing import Literal
@@ -124,175 +120,47 @@ ALLOWED_TABLES = ["total_unificado"]
 
 
 # ==============================================================================
-# LLM Provider Configuration and Classes
+# OpenRouter Provider for SQL Generation
 # ==============================================================================
 
-def get_llm_provider_config() -> dict:
-    """
-    Load and validate LLM provider configuration from environment variables.
+class OpenRouterProvider:
+    """OpenRouter provider implementation for SQL generation"""
 
-    Returns:
-        dict: Configuration dictionary with provider, base_url, model, api_key, headers
+    def __init__(self, api_key: str, model: str):
+        """
+        Initialize OpenRouter provider.
 
-    Raises:
-        ValueError: If provider is invalid or required API key is missing
-    """
-    provider = os.getenv('LLM_SERVICE', 'ollama').lower()
+        Args:
+            api_key: OpenRouter API key
+            model: Model identifier (e.g., 'openai/gpt-oss-120b')
 
-    if provider == 'ollama':
-        return {
-            'provider': 'ollama',
-            'base_url': os.getenv('OLLAMA_URL', 'http://localhost:11434'),
-            'model': os.getenv('OLLAMA_MODEL'),  # None = auto-detect
-            'api_key': None,
-            'headers': {'Content-Type': 'application/json'}
-        }
-
-    elif provider == 'openrouter':
-        api_key = os.getenv('OPENROUTER_API_KEY')
+        Raises:
+            ValueError: If api_key is empty or None
+        """
         if not api_key:
-            raise ValueError("OPENROUTER_API_KEY environment variable required for OpenRouter provider")
+            raise ValueError("OpenRouter API key is required")
 
-        return {
-            'provider': 'openrouter',
-            'base_url': 'https://openrouter.ai/api/v1',
-            'model': os.getenv('OPENROUTER_MODEL', 'meta-llama/llama-3.3-70b-instruct'),
-            'api_key': api_key,
-            'headers': {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
+        self.base_url = "https://openrouter.ai/api/v1"
+        self.headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
         }
-
-    elif provider == 'openai':
-        api_key = os.getenv('OPENAI_API_KEY')
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable required for OpenAI provider")
-
-        return {
-            'provider': 'openai',
-            'base_url': 'https://api.openai.com/v1',
-            'model': os.getenv('OPENAI_MODEL', 'gpt-5-mini'),
-            'api_key': api_key,
-            'headers': {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
-        }
-
-    elif provider == 'groq':
-        api_key = os.getenv('GROQ_API_KEY')
-        if not api_key:
-            raise ValueError("GROQ_API_KEY environment variable required for Groq provider")
-
-        return {
-            'provider': 'groq',
-            'base_url': 'https://api.groq.com/openai/v1',
-            'model': os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile'),
-            'api_key': api_key,
-            'headers': {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
-        }
-
-    else:
-        raise ValueError(
-            f"Unknown LLM_SERVICE: {provider}. Must be one of: ollama, openrouter, openai, groq"
-        )
-
-
-class LLMProvider(ABC):
-    """Abstract base class for LLM providers"""
-
-    def __init__(self, config: dict):
-        self.config = config
-
-    @abstractmethod
-    async def generate_sql(self, prompt: str, emitter: EventEmitter) -> str:
-        """Generate SQL from natural language prompt"""
-        pass
-
-    def list_models(self) -> list[str]:
-        """Optional: Return available models"""
-        return [self.config.get('model', 'unknown')]
-
-
-class OllamaProvider(LLMProvider):
-    """Ollama provider implementation"""
-
-    def __init__(self, config: dict):
-        super().__init__(config)
-        self.base_url = config['base_url']
-
-    def list_models(self) -> list[str]:
-        """Fetch models from /api/ps endpoint"""
-        try:
-            response = requests.get(f"{self.base_url}/api/ps", timeout=5)
-            response.raise_for_status()
-            models_data = response.json().get("models", [])
-            model_names = [m.get("name") for m in models_data if "name" in m]
-            if model_names:
-                return model_names
-        except Exception as e:
-            print(f"DEBUG: Failed to fetch Ollama models: {e}")
-
-        # Fallback to config or default
-        return [self.config.get('model') or 'llama3']
+        self.model = model
 
     async def generate_sql(self, prompt: str, emitter: EventEmitter) -> str:
-        """Generate using Ollama /api/generate endpoint"""
-        # Get model - use config if provided, otherwise auto-detect
-        model = self.config.get('model') or self.list_models()[0]
+        """
+        Generate SQL using OpenRouter /chat/completions endpoint.
 
-        payload = {
-            "model": model,
-            "prompt": prompt,
-        }
+        Args:
+            prompt: Natural language prompt to convert to SQL
+            emitter: Event emitter for status updates
 
-        try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                async with client.stream(
-                    'POST',
-                    f"{self.base_url}/api/generate",
-                    json=payload,
-                ) as response:
-                    response.raise_for_status()
+        Returns:
+            Generated SQL query string
 
-                    sql_query = ""
-                    async for line in response.aiter_lines():
-                        try:
-                            chunk = json.loads(line)
-                            content = chunk.get("response", "")
-                            sql_query += content
-
-                            await emitter.emit(
-                                content=f"Respuesta parcial: {content}",
-                                status="sql_generation_in_progress",
-                                done=False,
-                            )
-
-                            if chunk.get("done", False):
-                                break
-                        except json.JSONDecodeError:
-                            continue
-
-                return sql_query
-        except Exception as e:
-            raise Exception(f"Ollama generation failed: {e}")
-
-
-class OpenAICompatibleProvider(LLMProvider):
-    """OpenAI-compatible provider implementation (OpenAI, OpenRouter, Groq)"""
-
-    def __init__(self, config: dict):
-        super().__init__(config)
-        self.base_url = config['base_url']
-        self.headers = config['headers']
-        self.model = config['model']
-
-    async def generate_sql(self, prompt: str, emitter: EventEmitter) -> str:
-        """Generate using OpenAI-compatible /chat/completions endpoint"""
+        Raises:
+            Exception: If API call fails
+        """
         prompt = prompt + '\nRespond ONLY with the SQL SELECT command, no additional text or formatting is permitted.'
         payload = {
             "model": self.model,
@@ -346,6 +214,7 @@ class OpenAICompatibleProvider(LLMProvider):
 
                                 await emitter.emit(
                                     content=f"Respuesta parcial: {content}",
+                                    description='',
                                     status="sql_generation_in_progress",
                                     done=False,
                                 )
@@ -354,19 +223,7 @@ class OpenAICompatibleProvider(LLMProvider):
 
                     return sql_query
         except Exception as e:
-            raise Exception(f"{self.config['provider']} generation failed: {e}")
-
-
-def create_llm_provider() -> LLMProvider:
-    """Factory function to create appropriate LLM provider based on environment"""
-    config = get_llm_provider_config()
-    provider_name = config['provider']
-
-    if provider_name == 'ollama':
-        return OllamaProvider(config)
-    else:
-        # openrouter, openai, groq all use OpenAI-compatible API
-        return OpenAICompatibleProvider(config)
+            raise Exception(f"OpenRouter generation failed: {e}")
 
 
 class Tools:
@@ -374,7 +231,7 @@ class Tools:
     class Valves(BaseModel):
 
         # To give the user the choice between multiple strings, you can use Literal from typing:
-        openrouter_model: Literal["qwen/qwen3-next-80b-a3b-instruct", "deepseek/deepseek-v3.2",
+        openrouter_model: Literal["qwen/qwen3-32b", "deepseek/deepseek-v3.2",
                                   "openai/gpt-oss-120b"] = Field(
            default="openai/gpt-oss-120b",
            description="Modelo a utilizar para uso interno de herramientas",
@@ -385,10 +242,18 @@ class Tools:
 
 
     def __init__(self):
-
         self.valves = self.Valves()
 
-        pass
+        # Get and validate API key at initialization
+        api_key = os.getenv('OPENROUTER_API_KEY')
+        if not api_key:
+            raise ValueError("OPENROUTER_API_KEY environment variable is required")
+
+        # Create OpenRouter provider instance (reused across calls)
+        self.llm_provider = OpenRouterProvider(
+            api_key=api_key,
+            model=self.valves.openrouter_model
+        )
 
     def get_db_config(self):
         """
@@ -469,7 +334,7 @@ class Tools:
                 status="fetching_metadata",
                 done=False,
             )
-            print(self.valves.choice_option)
+            
             db_config = self.get_db_config()
             indicators_metadata = []
 
@@ -788,7 +653,7 @@ class Tools:
         Reply ONLY with the SQL SELECT command, no additional text is permitted.
         """
 
-        # Use the provider-based approach for multi-LLM support
+        # Use OpenRouter to generate SQL
         try:
             await emitter.emit(
                 description="Inicializando proveedor LLM...",
@@ -796,17 +661,17 @@ class Tools:
                 done=False,
             )
 
-            # Create provider based on environment configuration
-            provider = create_llm_provider()
+            # Sync model from valves (in case user changed it via UI)
+            self.llm_provider.model = self.valves.openrouter_model
 
             await emitter.emit(
-                description=f"Generando SQL usando {provider.config['provider']}...",
+                description="Generando SQL usando OpenRouter...",
                 status="sql_generation_in_progress",
                 done=False,
             )
 
             # Generate SQL using the provider
-            sql_query = await provider.generate_sql(prompt, emitter)
+            sql_query = await self.llm_provider.generate_sql(prompt, emitter)
 
             if not sql_query or not sql_query.strip():
                 raise ValueError("No SQL query was returned by the LLM.")
