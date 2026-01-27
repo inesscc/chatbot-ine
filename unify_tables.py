@@ -44,19 +44,32 @@ df_enusc['mes'] = np.nan
 df_ene = pd.read_parquet('data/intermediate/ene_unificado.parquet')
 df_ene['indicador'] = df_ene['indicador'].replace({'fuerza_trabajo': 'personas_fuerza_trabajo',
                                                    'poblacion_edad_trabajar': 'personas_edad_trabajar'})
-
-
+indicadores = df_ene.indicador.value_counts().index
+indicadores_personas = indicadores[indicadores.str.contains('persona')]
+# Pasamos cifras a su valor completo
+df_ene.loc[df_ene.indicador.isin(indicadores_personas), 'valor_indicador'] = df_ene.loc[df_ene.indicador.isin(indicadores_personas), 'valor_indicador'] * 1000
 df_total = pd.concat([df_ene, df_enusc], ignore_index=True)
 df_total.grupo = df_total.grupo.replace('nacional', np.nan)
 df_total.valor_grupo = df_total.valor_grupo.replace('Total País', np.nan)
 df_total.valor_grupo = df_total.valor_grupo.replace('-', np.nan)
-df_total.mes = df_total.mes.astype('Int64', errors='ignore')
-df_total.año = df_total.año.astype('Int64', errors='ignore')
+
+# Redondeamos cifras
+v = df_total.valor_indicador
+df_total.valor_indicador = np.where(
+    v < 1,
+    np.round(v, 4),
+    np.where(
+        v <= 1000,
+        np.round(v, 2),
+        np.round(v, 0)
+    )
+)
+df_total.mes = df_total.mes.astype('Int32', errors='ignore')
+df_total.año = df_total.año.astype('Int32', errors='ignore')
 
 
-
+# Mapeamos valores de las regiones
 filter_regs = df_total.grupo == 'region'
-df_total.grupo
 df_total.loc[filter_regs, 'valor_grupo' ] = df_total.loc[filter_regs, ].valor_grupo.map(mapa_regiones)
 
 

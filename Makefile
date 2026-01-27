@@ -1,4 +1,4 @@
-.PHONY: help prod-up prod-up-fg prod-down prod-restart prod-logs prod-rebuild prod-shell prod-db-shell dev-up dev-up-fg dev-down dev-restart dev-logs dev-rebuild dev-shell dev-db-shell both-up both-up-fg both-down both-logs network-create status clean-dev clean-prod
+.PHONY: help prod-up prod-up-fg prod-down prod-restart prod-logs prod-rebuild prod-shell prod-db-shell dev-up dev-up-fg dev-down dev-restart dev-logs dev-rebuild dev-shell dev-db-shell both-up both-up-fg both-down both-logs network-create status dev-clean-pgdata clean-dev clean-prod
 
 # Default target
 help:
@@ -37,6 +37,8 @@ help:
 	@echo "Cleanup (CAUTION - DELETES DATA):"
 	@echo "  make clean-dev        - Remove dev volumes (deletes dev data)"
 	@echo "  make clean-prod       - Remove prod volumes (deletes prod data)"
+	@echo "  make dev-clean-pgdata     - Remove PostgreSQL data directories"
+	
 
 # Network setup
 network-create:
@@ -153,3 +155,14 @@ clean-prod:
 	else \
 		echo "Cancelled"; \
 	fi
+
+dev-clean-pgdata:
+	@echo "WARNING: This will delete PostgreSQL data directories for development!"
+	@bash -c 'read -p "Are you sure? [y/N] " -n 1 -r REPLY; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		docker volume rm open-webui_pgdata-dev; \
+		echo "Development PostgreSQL data directories deleted"; \
+	else \
+		echo "Cancelled"; \
+	fi'
