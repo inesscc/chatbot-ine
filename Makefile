@@ -60,8 +60,7 @@ prod-down:
 
 prod-restart:
 	@echo "Restarting production environment..."
-	docker compose --profile prod restart
-
+	docker compose --profile prod down && docker compose --profile prod up -d
 prod-rebuild:
 	@echo "Rebuilding and restarting production environment..."
 	docker compose --profile prod up -d --build
@@ -93,7 +92,7 @@ dev-down:
 
 dev-restart:
 	@echo "Restarting development environment..."
-	docker compose --profile dev restart
+	docker compose --profile dev down && docker compose --profile dev up -d
 
 dev-rebuild:
 	@echo "Rebuilding and restarting development environment..."
