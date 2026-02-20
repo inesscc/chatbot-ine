@@ -21,7 +21,7 @@
         "prefix_id": "",
         "model_ids": [
 
-          "qwen/qwen3-32b",
+          "qwen/qwen3.5-397b-a17b",
           "openai/gpt-oss-120b",
           "deepseek/deepseek-v3.2"
         ],
