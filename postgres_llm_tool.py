@@ -425,10 +425,10 @@ class Tools:
 
                         groupings = []
                         for grupo  in grouping_rows:
-                            if grupo is None:
+                            if grupo == 'nacional':
                                 groupings.append({
-                                    "type": "national",
-                                    "description": "National aggregated data (grupo IS NULL)"
+                                    "type": "nacional",
+                                    "description": "National aggregated data (grupo='nacional')"
                                 })
                             else:
 
@@ -439,14 +439,14 @@ class Tools:
 
                         # Build query examples
                         query_examples = []
-                        if "nacional" in [g["type"] for g in groupings] or any(g["type"] == "national" for g in groupings):
+                        if any(g["type"] == "nacional" for g in groupings):
                             if "mensual" in frequencies:
                                 query_examples.append(
-                                    f"For national monthly data: WHERE indicador='{indicador}' AND grupo IS NULL AND frecuencia='mensual'"
+                                    f"For national monthly data: WHERE indicador='{indicador}' AND grupo='nacional' AND frecuencia='mensual'"
                                 )
                             if "anual" in frequencies:
                                 query_examples.append(
-                                    f"For national annual data: WHERE indicador='{indicador}' AND grupo IS NULL AND frecuencia='anual'"
+                                    f"For national annual data: WHERE indicador='{indicador}' AND grupo='nacional' AND frecuencia='anual'"
                                 )
 
                         for grp in groupings:
@@ -539,7 +539,7 @@ class Tools:
 
             if indicator_name:
                 summary_lines.append("Key SQL Patterns:")
-                summary_lines.append("  - For national/total data: grupo IS NULL AND valor_grupo IS NULL")
+                summary_lines.append("  - For national/total data: grupo='nacional' AND valor_grupo IS NULL")
                 summary_lines.append("  - For sex-disaggregated data: grupo='sexo' AND valor_grupo IN ('hombre', 'mujer')")
                 summary_lines.append("  - For regional data: grupo='region' AND valor_grupo IN (region names like 'Metropolitana', 'Valparaíso', etc.)")
                 summary_lines.append("  - For monthly data: frecuencia='mensual'")
@@ -608,7 +608,7 @@ class Tools:
         Column Descriptions:
         - indicador: Type of metric (e.g., tasa_desocupacion, personas_fuerza_trabajo, percepcion_aumento_delincuencia_pais)
         - valor_indicador: Numerical value of the indicator
-        - grupo: Grouping category (NULL for national data, 'sexo' for sex-disaggregated, 'region' for regional)
+        - grupo: Grouping category ('nacional' for national data, 'sexo' for sex-disaggregated, 'region' for regional)
         - valor_grupo: Value within the group (NULL for national, 'hombre'/'mujer' for sex, region names like 'Metropolitana', 'Valparaíso', etc. for regions)
         - año: Year (integer)
         - mes: Month number ('1'-'12' for monthly data, NULL for annual data)
@@ -617,8 +617,8 @@ class Tools:
         Sample Data:
         indicador: personas_fuerza_trabajo, valor_indicador: 4808.37, grupo: sexo, valor_grupo: hombre, año: 2010, mes: None, frecuencia: anual
         indicador: personas_fuerza_trabajo, valor_indicador: 3191.70, grupo: sexo, valor_grupo: mujer, año: 2010, mes: None, frecuencia: anual
-        indicador: personas_fuerza_trabajo, valor_indicador: 7883.69, grupo: NULL, valor_grupo: NULL, año: 2010, mes: 1, frecuencia: mensual
-        indicador: tasa_participacion, valor_indicador: 59.66, grupo: NULL, valor_grupo: NULL, año: 2022, mes: 4, frecuencia: mensual
+        indicador: personas_fuerza_trabajo, valor_indicador: 7883.69, grupo: nacional, valor_grupo: NULL, año: 2010, mes: 1, frecuencia: mensual
+        indicador: tasa_participacion, valor_indicador: 59.66, grupo: nacional, valor_grupo: NULL, año: 2022, mes: 4, frecuencia: mensual
 
         Available Indicators:
         Employment Indicators (ENE):
@@ -635,7 +635,7 @@ class Tools:
         - victimizacion_personas_delitos_violentos (personal victimization - violent crimes)
 
         CRITICAL SQL Patterns (you MUST use these exact patterns):
-        - For national/total data: WHERE grupo IS NULL AND valor_grupo IS NULL
+        - For national/total data: WHERE grupo = 'nacional' AND valor_grupo IS NULL
         - For sex-disaggregated data: WHERE grupo = 'sexo' AND valor_grupo IN ('hombre', 'mujer')
         - For regional data: WHERE grupo = 'region' AND valor_grupo IN (region names like 'Metropolitana', 'Valparaíso', 'Biobío', etc.)
         - For monthly data: WHERE frecuencia = 'mensual' AND mes IS NOT NULL
