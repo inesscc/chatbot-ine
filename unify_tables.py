@@ -42,6 +42,7 @@ data_dir = Path('data/')
 df_enusc = pd.read_parquet('data/intermediate/enusc_unificado.parquet').drop(columns=['codigo_indicador'])
 df_enusc['mes'] = np.nan
 df_ene = pd.read_parquet('data/intermediate/ene_unificado.parquet')
+
 df_ene['indicador'] = df_ene['indicador'].replace({'fuerza_trabajo': 'personas_fuerza_trabajo',
                                                    'poblacion_edad_trabajar': 'personas_edad_trabajar'})
 indicadores = df_ene.indicador.value_counts().index
@@ -49,7 +50,7 @@ indicadores_personas = indicadores[indicadores.str.contains('persona')]
 # Pasamos cifras a su valor completo
 df_ene.loc[df_ene.indicador.isin(indicadores_personas), 'valor_indicador'] = df_ene.loc[df_ene.indicador.isin(indicadores_personas), 'valor_indicador'] * 1000
 df_total = pd.concat([df_ene, df_enusc], ignore_index=True)
-df_total.grupo = df_total.grupo.replace('nacional', np.nan)
+#df_total.grupo = df_total.grupo.replace('nacional', np.nan)
 df_total.valor_grupo = df_total.valor_grupo.replace('Total País', np.nan)
 df_total.valor_grupo = df_total.valor_grupo.replace('-', np.nan)
 
@@ -66,7 +67,7 @@ df_total.valor_indicador = np.where(
 )
 df_total.mes = df_total.mes.astype('Int32', errors='ignore')
 df_total.año = df_total.año.astype('Int32', errors='ignore')
-
+df_total.valor_indicador
 
 # Mapeamos valores de las regiones
 filter_regs = df_total.grupo == 'region'
@@ -75,23 +76,23 @@ df_total.loc[filter_regs, 'valor_grupo' ] = df_total.loc[filter_regs, ].valor_gr
 
 
 output_path = data_dir / 'current/total_unificado.parquet'
-df_total.indicador.unique()
-df_total[df_total.indicador == 'fuerza_trabajo']
+
 df_total = df_total[df_total.grupo.ne('nse')] # Quitamos nse
+df_total
 df_total.to_parquet(output_path, index=False)
+
 df_total[df_total.grupo.eq('region')].indicador.value_counts()
 print(f"✅ Unified table saved to: {output_path}")
-print(f"\nShape: {df_ene.shape}")
-print(f"\nColumns: {df_ene.columns.tolist()}")
+print(f"\nShape: {df_total.shape}")
+print(f"\nColumns: {df_total.columns.tolist()}")
 print(f"\nFirst 10 rows:")
-print(df_ene.head(10))
+print(df_total.head(10))
 print(f"\nLast 10 rows:")
-print(df_ene.tail(10))
+print(df_total.tail(10))
 print(f"\nUnique values:")
-print(f"  - indicador: {df_ene['indicador'].unique()}")
-print(f"  - grupo: {df_ene['grupo'].unique()}")
-print(f"  - valor_grupo: {df_ene['valor_grupo'].unique()}")
-
+print(f"  - indicador: {df_total['indicador'].unique()}")
+print(f"  - grupo: {df_total['grupo'].unique()}")
+print(f"  - valor_grupo: {df_total['valor_grupo'].unique()}")
 # # Combine both dataframes
 # df_ene = pd.concat([df_nacional_unified, df_sexo_unified], ignore_index=True)
 
