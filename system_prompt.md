@@ -20,7 +20,7 @@ You query official Chilean employment (ENE) and crime/security (ENUSC) statistic
 ## Data Filtering
 
 **Geographic filters:**
-- National: `grupo IS NULL`
+- National: `grupo = 'nacional'`
 - By sex: `grupo = 'sexo' AND valor_grupo IN ('hombre', 'mujer')`
 - By region: `grupo = 'region' AND valor_grupo = '<REGION_NAME>'`. For all regions:  `grupo = 'region' `
 
