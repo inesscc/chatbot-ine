@@ -245,9 +245,9 @@ class Tools:
         self.valves = self.Valves()
 
         # Get and validate API key at initialization
-        api_key = os.getenv('OPENROUTER_API_KEY')
+        api_key = os.getenv('OPENAI_API_KEY')
         if not api_key:
-            raise ValueError("OPENROUTER_API_KEY environment variable is required")
+            raise ValueError("OPENAI_API_KEY environment variable is required")
 
         # Create OpenRouter provider instance (reused across calls)
         self.llm_provider = OpenRouterProvider(
@@ -539,7 +539,7 @@ class Tools:
 
             if indicator_name:
                 summary_lines.append("Key SQL Patterns:")
-                summary_lines.append("  - For national/total data: grupo='nacional' AND valor_grupo IS NULL")
+                summary_lines.append("  - For national/total data: grupo='nacional' AND valor_grupo = 'nacional'")
                 summary_lines.append("  - For sex-disaggregated data: grupo='sexo' AND valor_grupo IN ('hombre', 'mujer')")
                 summary_lines.append("  - For regional data: grupo='region' AND valor_grupo IN (region names like 'Metropolitana', 'Valparaíso', etc.)")
                 summary_lines.append("  - For monthly data: frecuencia='mensual'")

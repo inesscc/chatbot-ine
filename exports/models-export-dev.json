@@ -96,15 +96,15 @@
         "created_at": 1768940533
     },
     {
-        "id": "qwen/qwen3.5-397b-a17b",
-        "name": "qwen/qwen3.5-397b-a17b",
+        "id": "qwen/qwen3.5-35b-a3b",
+        "name": "qwen/qwen3.5-35b-a3b",
         "owned_by": "openai",
         "openai": {
-            "id": "qwen/qwen3.5-397b-a17b",
-            "name": "qwen/qwen3.5-397b-a17b",
+            "id": "qwen/qwen3.5-35b-a3b",
+            "name": "qwen/qwen3.5-35b-a3b",
             "owned_by": "openai",
             "openai": {
-                "id": "qwen/qwen3.5-397b-a17b"
+                "id": "qwen/qwen3.5-35b-a3b"
             },
             "urlIdx": 0,
             "connection_type": "external"
