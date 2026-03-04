@@ -15,8 +15,9 @@ echo "⏳ Waiting for Open WebUI to initialize..."
 sleep 10
 
 # Wait for Ollama to be ready
-echo "⏳ Waiting for Ollama service..."
-until ollama list &> /dev/null; do
+OLLAMA_URL="${OLLAMA_BASE_URL:-http://ollama:11434}"
+echo "⏳ Waiting for Ollama service at ${OLLAMA_URL}..."
+until curl -sf "${OLLAMA_URL}/api/tags" > /dev/null 2>&1; do
   echo "Ollama not ready yet, waiting..."
   sleep 2
 done

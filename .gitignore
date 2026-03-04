@@ -5,6 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info
+open-webui/
 pruebas/
 # Virtual environments
 .venv

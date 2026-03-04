@@ -1,5 +1,4 @@
-FROM ghcr.io/open-webui/open-webui:ollama
-#FROM dyrnq/open-webui:ollama
+FROM ghcr.io/open-webui/open-webui:latest
 # Copy the import script, startup script, and export files
 COPY import_tools.py /app/import_tools.py
 COPY start_with_tools.sh /app/start_with_tools.sh

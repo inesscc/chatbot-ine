@@ -7,7 +7,7 @@ help:
 	@echo "Network Setup:"
 	@echo "  make network-create    - Create the webui-net network (run once)"
 	@echo ""
-	@echo "Production Environment (ports 3030, 11434, 5438):"
+	@echo "Production Environment (ports 3030 WebUI, 11434 Ollama, 5438 DB):"
 	@echo "  make prod-up          - Start production containers"
 	@echo "  make prod-down        - Stop production containers"
 	@echo "  make prod-restart     - Restart production containers"
@@ -16,7 +16,7 @@ help:
 	@echo "  make prod-shell       - Shell into production open-webui container"
 	@echo "  make prod-db-shell    - PostgreSQL shell for production database"
 	@echo ""
-	@echo "Development Environment (ports 3031, 11435, 5439):"
+	@echo "Development Environment (ports 3031 WebUI, 11435 Ollama, 5439 DB):"
 	@echo "  make dev-up           - Start development containers"
 	@echo "  make dev-down         - Stop development containers"
 	@echo "  make dev-restart      - Restart development containers"
@@ -114,7 +114,7 @@ both-logs:
 # Status
 status:
 	@echo "Container Status:"
-	@docker ps -a --filter "name=open-webui" --filter "name=toy-postgres" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+	@docker ps -a --filter "name=open-webui" --filter "name=toy-postgres" --filter "name=ollama" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 # Cleanup (dangerous)
 clean-dev:

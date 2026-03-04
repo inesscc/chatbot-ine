@@ -1,24 +1,13 @@
 
 services:
   # PRODUCTION ENVIRONMENT
-  open-webui-prod:
-    build:
-      context: .
-      dockerfile: Dockerfile.openwebui
-    container_name: open-webui-prod
+  ollama-prod:
+    image: ollama/ollama:latest
+    container_name: ollama-prod
     ports:
-      - "3030:8080"
       - "11434:11434"
     volumes:
-      - open-webui-prod:/app/backend/data
       - ./ollama_models:/root/.ollama
-      # Mount configuration files for hot-reload on restart
-      - ./postgres-tool-export.json:/app/postgres-tool-export.json:ro
-      - ./models-export.json:/app/models-export.json:ro
-      - ./config-export-prod.json:/app/config-export.json:ro
-      - ./import_tools.py:/app/import_tools.py:ro
-      - ./start_with_tools.sh:/app/start_with_tools.sh:ro
-      - ./hf_models:/app/backend/hf_models:ro
     restart: unless-stopped
     deploy:
       resources:
@@ -27,15 +16,38 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    networks:
+      - webui-net
+    profiles:
+      - prod
+
+  open-webui-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile.openwebui
+    container_name: open-webui-prod
+    ports:
+      - "3030:8080"
+    volumes:
+      - open-webui-prod:/app/backend/data
+      # Mount configuration files for hot-reload on restart
+      - ./postgres-tool-export.json:/app/postgres-tool-export.json:ro
+      - ./models-export.json:/app/models-export.json:ro
+      - ./config-export-prod.json:/app/config-export.json:ro
+      - ./import_tools.py:/app/import_tools.py:ro
+      - ./start_with_tools.sh:/app/start_with_tools.sh:ro
+      - ./hf_models:/app/backend/hf_models:ro
+    restart: unless-stopped
     depends_on:
       - db-prod
+      - ollama-prod
     environment:
       POSTGRES_HOST: db-prod
       POSTGRES_PORT: 5432
       POSTGRES_DB: toydb
       POSTGRES_USER: toyuser
       POSTGRES_PASSWORD: toypass
-      OLLAMA_HOST: 0.0.0.0
+      OLLAMA_BASE_URL: http://ollama-prod:11434
       #OPENAI_API_BASE_URLS: https://api.openai.com/v1;https://api.groq.com/openai/v1
       #OPENAI_API_KEYS: ${OPENAI_API_KEY};${GROQ_API_KEY}
     env_file:
@@ -67,24 +79,13 @@ services:
       - prod
 
   # DEVELOPMENT ENVIRONMENT
-  open-webui-dev:
-    build:
-      context: .
-      dockerfile: Dockerfile.openwebui
-    container_name: open-webui-dev
+  ollama-dev:
+    image: ollama/ollama:latest
+    container_name: ollama-dev
     ports:
-      - "3031:8080"
       - "11435:11434"
     volumes:
-      - open-webui-dev:/app/backend/data
       - ./ollama_models:/root/.ollama
-      # Mount configuration files for hot-reload on restart
-      - ./postgres-tool-export.json:/app/postgres-tool-export.json:ro
-      - ./models-export.json:/app/models-export.json:ro
-      - ./config-export-dev.json:/app/config-export.json:ro
-      - ./import_tools.py:/app/import_tools.py:ro
-      - ./start_with_tools.sh:/app/start_with_tools.sh:ro
-      - ./hf_models:/app/backend/hf_models:ro
     restart: unless-stopped
     deploy:
       resources:
@@ -93,15 +94,38 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    networks:
+      - webui-net
+    profiles:
+      - dev
+
+  open-webui-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.openwebui
+    container_name: open-webui-dev
+    ports:
+      - "3031:8080"
+    volumes:
+      - open-webui-dev:/app/backend/data
+      # Mount configuration files for hot-reload on restart
+      - ./postgres-tool-export.json:/app/postgres-tool-export.json:ro
+      - ./models-export.json:/app/models-export.json:ro
+      - ./config-export-dev.json:/app/config-export.json:ro
+      - ./import_tools.py:/app/import_tools.py:ro
+      - ./start_with_tools.sh:/app/start_with_tools.sh:ro
+      - ./hf_models:/app/backend/hf_models:ro
+    restart: unless-stopped
     depends_on:
       - db-dev
+      - ollama-dev
     environment:
       POSTGRES_HOST: db-dev
       POSTGRES_PORT: 5432
       POSTGRES_DB: toydb
       POSTGRES_USER: toyuser
       POSTGRES_PASSWORD: toypass
-      OLLAMA_HOST: 0.0.0.0
+      OLLAMA_BASE_URL: http://ollama-dev:11434
       #OPENAI_API_BASE_URLS: https://api.openai.com/v1;https://api.groq.com/openai/v1
       #OPENAI_API_KEYS: ${OPENAI_API_KEY};${GROQ_API_KEY}
     env_file:
