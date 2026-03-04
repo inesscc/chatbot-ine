@@ -82,6 +82,33 @@ def wait_for_db(db_path, max_retries=30):
     return False
 
 
+def apply_schema_migrations(db_path):
+    """
+    Ensure the database schema has all expected columns, adding any that are missing.
+    This handles cases where the Open WebUI DB was created with an older schema version.
+    """
+    migrations = [
+        ("tool",  "access_control", "TEXT"),
+        ("model", "access_control", "TEXT"),
+    ]
+
+    if not wait_for_db(db_path):
+        return False
+
+    try:
+        with sqlite3.connect(db_path, timeout=30.0) as conn:
+            for table, column, col_type in migrations:
+                cursor = conn.execute(f"PRAGMA table_info({table})")
+                existing_columns = {row[1] for row in cursor.fetchall()}
+                if column not in existing_columns:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+                    logger.info("Migration: added column %s.%s", table, column)
+        return True
+    except Exception as e:
+        logger.error("Schema migration failed: %s", e)
+        return False
+
+
 def import_tools_from_json(json_file_path, db_path):
     """
     Import tools from JSON export file into Open WebUI database.
@@ -524,6 +551,9 @@ if __name__ == "__main__":
         config_json = sys.argv[3]
     if len(sys.argv) > 4:
         db_file = sys.argv[4]
+
+    # Apply any missing schema migrations before importing
+    apply_schema_migrations(db_file)
 
     # Import tools, models, and config with delays to prevent database locks
     tools_success = import_tools_from_json(tools_json, db_file)

@@ -43,6 +43,7 @@ services:
       POSTGRES_USER: toyuser
       POSTGRES_PASSWORD: toypass
       OLLAMA_BASE_URL: http://ollama-prod:11434
+      ENABLE_INITIAL_ADMIN_SIGNUP: "True"
       #OPENAI_API_BASE_URLS: https://api.openai.com/v1;https://api.groq.com/openai/v1
       #OPENAI_API_KEYS: ${OPENAI_API_KEY};${GROQ_API_KEY}
     env_file:
