@@ -1,13 +1,11 @@
 """
 title: Postgres Database Tool
 author: Juan Concha (adapted from Joshua Rudy)
-version: 0.0.1
+version: 0.0.2
 license: MIT
 description: A simple tool for interacting with a PostgreSQL database. Ask the model questions and it will take the request
-and pass it as an API call to Ollama to generate a SQL query before executing the query using psycopg2.
-Added safe guards with query validations. Caution should be exercised anyways. Use an adjust as you need.
-I want to take the DB_CONFIG and make it global, it's unnecessary to define twice, but it works for now.
-I intend to take this and work it into a filter function or pipe for RAG and general DB interaction.
+and pass it as an API call to OpenRouter to generate a SQL query before executing the query using psycopg2.
+Added safe guards with query validations. Caution should be exercised anyways. Use and adjust as you need.
 
 This version hardcodes the database schema in the prompt. Could be moved to the system prompt, but haven't
 tested performance in that case.
@@ -15,7 +13,7 @@ tested performance in that case.
 Adapted for docker environment with:
 - toydb database
 - readonly_user for safe queries
-- localhost:5438 connection
+- OpenRouter for SQL generation with configurable models via Valves
 - Updated table whitelist for your schema
 """
 
@@ -23,11 +21,9 @@ import json
 from typing import Callable, Any
 import re
 import httpx
-import requests
 import asyncio
 import psycopg2
 import os
-from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, Field
 from typing import Literal
@@ -124,175 +120,47 @@ ALLOWED_TABLES = ["total_unificado"]
 
 
 # ==============================================================================
-# LLM Provider Configuration and Classes
+# OpenRouter Provider for SQL Generation
 # ==============================================================================
 
-def get_llm_provider_config() -> dict:
-    """
-    Load and validate LLM provider configuration from environment variables.
+class OpenRouterProvider:
+    """OpenRouter provider implementation for SQL generation"""
 
-    Returns:
-        dict: Configuration dictionary with provider, base_url, model, api_key, headers
+    def __init__(self, api_key: str, model: str):
+        """
+        Initialize OpenRouter provider.
 
-    Raises:
-        ValueError: If provider is invalid or required API key is missing
-    """
-    provider = os.getenv('LLM_SERVICE', 'ollama').lower()
+        Args:
+            api_key: OpenRouter API key
+            model: Model identifier (e.g., 'openai/gpt-oss-120b')
 
-    if provider == 'ollama':
-        return {
-            'provider': 'ollama',
-            'base_url': os.getenv('OLLAMA_URL', 'http://localhost:11434'),
-            'model': os.getenv('OLLAMA_MODEL'),  # None = auto-detect
-            'api_key': None,
-            'headers': {'Content-Type': 'application/json'}
-        }
-
-    elif provider == 'openrouter':
-        api_key = os.getenv('OPENROUTER_API_KEY')
+        Raises:
+            ValueError: If api_key is empty or None
+        """
         if not api_key:
-            raise ValueError("OPENROUTER_API_KEY environment variable required for OpenRouter provider")
+            raise ValueError("OpenRouter API key is required")
 
-        return {
-            'provider': 'openrouter',
-            'base_url': 'https://openrouter.ai/api/v1',
-            'model': os.getenv('OPENROUTER_MODEL', 'meta-llama/llama-3.3-70b-instruct'),
-            'api_key': api_key,
-            'headers': {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
+        self.base_url = "https://openrouter.ai/api/v1"
+        self.headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
         }
-
-    elif provider == 'openai':
-        api_key = os.getenv('OPENAI_API_KEY')
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable required for OpenAI provider")
-
-        return {
-            'provider': 'openai',
-            'base_url': 'https://api.openai.com/v1',
-            'model': os.getenv('OPENAI_MODEL', 'gpt-5-mini'),
-            'api_key': api_key,
-            'headers': {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
-        }
-
-    elif provider == 'groq':
-        api_key = os.getenv('GROQ_API_KEY')
-        if not api_key:
-            raise ValueError("GROQ_API_KEY environment variable required for Groq provider")
-
-        return {
-            'provider': 'groq',
-            'base_url': 'https://api.groq.com/openai/v1',
-            'model': os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile'),
-            'api_key': api_key,
-            'headers': {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
-        }
-
-    else:
-        raise ValueError(
-            f"Unknown LLM_SERVICE: {provider}. Must be one of: ollama, openrouter, openai, groq"
-        )
-
-
-class LLMProvider(ABC):
-    """Abstract base class for LLM providers"""
-
-    def __init__(self, config: dict):
-        self.config = config
-
-    @abstractmethod
-    async def generate_sql(self, prompt: str, emitter: EventEmitter) -> str:
-        """Generate SQL from natural language prompt"""
-        pass
-
-    def list_models(self) -> list[str]:
-        """Optional: Return available models"""
-        return [self.config.get('model', 'unknown')]
-
-
-class OllamaProvider(LLMProvider):
-    """Ollama provider implementation"""
-
-    def __init__(self, config: dict):
-        super().__init__(config)
-        self.base_url = config['base_url']
-
-    def list_models(self) -> list[str]:
-        """Fetch models from /api/ps endpoint"""
-        try:
-            response = requests.get(f"{self.base_url}/api/ps", timeout=5)
-            response.raise_for_status()
-            models_data = response.json().get("models", [])
-            model_names = [m.get("name") for m in models_data if "name" in m]
-            if model_names:
-                return model_names
-        except Exception as e:
-            print(f"DEBUG: Failed to fetch Ollama models: {e}")
-
-        # Fallback to config or default
-        return [self.config.get('model') or 'llama3']
+        self.model = model
 
     async def generate_sql(self, prompt: str, emitter: EventEmitter) -> str:
-        """Generate using Ollama /api/generate endpoint"""
-        # Get model - use config if provided, otherwise auto-detect
-        model = self.config.get('model') or self.list_models()[0]
+        """
+        Generate SQL using OpenRouter /chat/completions endpoint.
 
-        payload = {
-            "model": model,
-            "prompt": prompt,
-        }
+        Args:
+            prompt: Natural language prompt to convert to SQL
+            emitter: Event emitter for status updates
 
-        try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                async with client.stream(
-                    'POST',
-                    f"{self.base_url}/api/generate",
-                    json=payload,
-                ) as response:
-                    response.raise_for_status()
+        Returns:
+            Generated SQL query string
 
-                    sql_query = ""
-                    async for line in response.aiter_lines():
-                        try:
-                            chunk = json.loads(line)
-                            content = chunk.get("response", "")
-                            sql_query += content
-
-                            await emitter.emit(
-                                content=f"Respuesta parcial: {content}",
-                                status="sql_generation_in_progress",
-                                done=False,
-                            )
-
-                            if chunk.get("done", False):
-                                break
-                        except json.JSONDecodeError:
-                            continue
-
-                return sql_query
-        except Exception as e:
-            raise Exception(f"Ollama generation failed: {e}")
-
-
-class OpenAICompatibleProvider(LLMProvider):
-    """OpenAI-compatible provider implementation (OpenAI, OpenRouter, Groq)"""
-
-    def __init__(self, config: dict):
-        super().__init__(config)
-        self.base_url = config['base_url']
-        self.headers = config['headers']
-        self.model = config['model']
-
-    async def generate_sql(self, prompt: str, emitter: EventEmitter) -> str:
-        """Generate using OpenAI-compatible /chat/completions endpoint"""
+        Raises:
+            Exception: If API call fails
+        """
         prompt = prompt + '\nRespond ONLY with the SQL SELECT command, no additional text or formatting is permitted.'
         payload = {
             "model": self.model,
@@ -346,6 +214,7 @@ class OpenAICompatibleProvider(LLMProvider):
 
                                 await emitter.emit(
                                     content=f"Respuesta parcial: {content}",
+                                    description='',
                                     status="sql_generation_in_progress",
                                     done=False,
                                 )
@@ -354,19 +223,7 @@ class OpenAICompatibleProvider(LLMProvider):
 
                     return sql_query
         except Exception as e:
-            raise Exception(f"{self.config['provider']} generation failed: {e}")
-
-
-def create_llm_provider() -> LLMProvider:
-    """Factory function to create appropriate LLM provider based on environment"""
-    config = get_llm_provider_config()
-    provider_name = config['provider']
-
-    if provider_name == 'ollama':
-        return OllamaProvider(config)
-    else:
-        # openrouter, openai, groq all use OpenAI-compatible API
-        return OpenAICompatibleProvider(config)
+            raise Exception(f"OpenRouter generation failed: {e}")
 
 
 class Tools:
@@ -374,7 +231,7 @@ class Tools:
     class Valves(BaseModel):
 
         # To give the user the choice between multiple strings, you can use Literal from typing:
-        openrouter_model: Literal["qwen/qwen3-next-80b-a3b-instruct", "deepseek/deepseek-v3.2",
+        openrouter_model: Literal["qwen/qwen3-32b", "deepseek/deepseek-v3.2",
                                   "openai/gpt-oss-120b"] = Field(
            default="openai/gpt-oss-120b",
            description="Modelo a utilizar para uso interno de herramientas",
@@ -385,10 +242,18 @@ class Tools:
 
 
     def __init__(self):
-
         self.valves = self.Valves()
 
-        pass
+        # Get and validate API key at initialization
+        api_key = os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is required")
+
+        # Create OpenRouter provider instance (reused across calls)
+        self.llm_provider = OpenRouterProvider(
+            api_key=api_key,
+            model=self.valves.openrouter_model
+        )
 
     def get_db_config(self):
         """
@@ -469,7 +334,7 @@ class Tools:
                 status="fetching_metadata",
                 done=False,
             )
-            print(self.valves.choice_option)
+            
             db_config = self.get_db_config()
             indicators_metadata = []
 
@@ -560,10 +425,10 @@ class Tools:
 
                         groupings = []
                         for grupo  in grouping_rows:
-                            if grupo is None:
+                            if grupo == 'nacional':
                                 groupings.append({
-                                    "type": "national",
-                                    "description": "National aggregated data (grupo IS NULL)"
+                                    "type": "nacional",
+                                    "description": "National aggregated data (grupo='nacional')"
                                 })
                             else:
 
@@ -574,14 +439,14 @@ class Tools:
 
                         # Build query examples
                         query_examples = []
-                        if "nacional" in [g["type"] for g in groupings] or any(g["type"] == "national" for g in groupings):
+                        if any(g["type"] == "nacional" for g in groupings):
                             if "mensual" in frequencies:
                                 query_examples.append(
-                                    f"For national monthly data: WHERE indicador='{indicador}' AND grupo IS NULL AND frecuencia='mensual'"
+                                    f"For national monthly data: WHERE indicador='{indicador}' AND grupo='nacional' AND frecuencia='mensual'"
                                 )
                             if "anual" in frequencies:
                                 query_examples.append(
-                                    f"For national annual data: WHERE indicador='{indicador}' AND grupo IS NULL AND frecuencia='anual'"
+                                    f"For national annual data: WHERE indicador='{indicador}' AND grupo='nacional' AND frecuencia='anual'"
                                 )
 
                         for grp in groupings:
@@ -674,7 +539,7 @@ class Tools:
 
             if indicator_name:
                 summary_lines.append("Key SQL Patterns:")
-                summary_lines.append("  - For national/total data: grupo IS NULL AND valor_grupo IS NULL")
+                summary_lines.append("  - For national/total data: grupo='nacional' AND valor_grupo = 'nacional'")
                 summary_lines.append("  - For sex-disaggregated data: grupo='sexo' AND valor_grupo IN ('hombre', 'mujer')")
                 summary_lines.append("  - For regional data: grupo='region' AND valor_grupo IN (region names like 'Metropolitana', 'Valparaíso', etc.)")
                 summary_lines.append("  - For monthly data: frecuencia='mensual'")
@@ -743,7 +608,7 @@ class Tools:
         Column Descriptions:
         - indicador: Type of metric (e.g., tasa_desocupacion, personas_fuerza_trabajo, percepcion_aumento_delincuencia_pais)
         - valor_indicador: Numerical value of the indicator
-        - grupo: Grouping category (NULL for national data, 'sexo' for sex-disaggregated, 'region' for regional)
+        - grupo: Grouping category ('nacional' for national data, 'sexo' for sex-disaggregated, 'region' for regional)
         - valor_grupo: Value within the group (NULL for national, 'hombre'/'mujer' for sex, region names like 'Metropolitana', 'Valparaíso', etc. for regions)
         - año: Year (integer)
         - mes: Month number ('1'-'12' for monthly data, NULL for annual data)
@@ -752,8 +617,8 @@ class Tools:
         Sample Data:
         indicador: personas_fuerza_trabajo, valor_indicador: 4808.37, grupo: sexo, valor_grupo: hombre, año: 2010, mes: None, frecuencia: anual
         indicador: personas_fuerza_trabajo, valor_indicador: 3191.70, grupo: sexo, valor_grupo: mujer, año: 2010, mes: None, frecuencia: anual
-        indicador: personas_fuerza_trabajo, valor_indicador: 7883.69, grupo: NULL, valor_grupo: NULL, año: 2010, mes: 1, frecuencia: mensual
-        indicador: tasa_participacion, valor_indicador: 59.66, grupo: NULL, valor_grupo: NULL, año: 2022, mes: 4, frecuencia: mensual
+        indicador: personas_fuerza_trabajo, valor_indicador: 7883.69, grupo: nacional, valor_grupo: NULL, año: 2010, mes: 1, frecuencia: mensual
+        indicador: tasa_participacion, valor_indicador: 59.66, grupo: nacional, valor_grupo: NULL, año: 2022, mes: 4, frecuencia: mensual
 
         Available Indicators:
         Employment Indicators (ENE):
@@ -770,7 +635,7 @@ class Tools:
         - victimizacion_personas_delitos_violentos (personal victimization - violent crimes)
 
         CRITICAL SQL Patterns (you MUST use these exact patterns):
-        - For national/total data: WHERE grupo IS NULL AND valor_grupo IS NULL
+        - For national/total data: WHERE grupo = 'nacional' AND valor_grupo IS NULL
         - For sex-disaggregated data: WHERE grupo = 'sexo' AND valor_grupo IN ('hombre', 'mujer')
         - For regional data: WHERE grupo = 'region' AND valor_grupo IN (region names like 'Metropolitana', 'Valparaíso', 'Biobío', etc.)
         - For monthly data: WHERE frecuencia = 'mensual' AND mes IS NOT NULL
@@ -788,7 +653,7 @@ class Tools:
         Reply ONLY with the SQL SELECT command, no additional text is permitted.
         """
 
-        # Use the provider-based approach for multi-LLM support
+        # Use OpenRouter to generate SQL
         try:
             await emitter.emit(
                 description="Inicializando proveedor LLM...",
@@ -796,17 +661,17 @@ class Tools:
                 done=False,
             )
 
-            # Create provider based on environment configuration
-            provider = create_llm_provider()
+            # Sync model from valves (in case user changed it via UI)
+            self.llm_provider.model = self.valves.openrouter_model
 
             await emitter.emit(
-                description=f"Generando SQL usando {provider.config['provider']}...",
+                description="Generando SQL usando OpenRouter...",
                 status="sql_generation_in_progress",
                 done=False,
             )
 
             # Generate SQL using the provider
-            sql_query = await provider.generate_sql(prompt, emitter)
+            sql_query = await self.llm_provider.generate_sql(prompt, emitter)
 
             if not sql_query or not sql_query.strip():
                 raise ValueError("No SQL query was returned by the LLM.")

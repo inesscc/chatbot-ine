@@ -1,4 +1,4 @@
-.PHONY: help prod-up prod-down prod-restart prod-logs prod-rebuild prod-shell prod-db-shell dev-up dev-down dev-restart dev-logs dev-rebuild dev-shell dev-db-shell both-up both-down both-logs network-create status clean-dev clean-prod
+.PHONY: help prod-up prod-up-fg prod-down prod-restart prod-logs prod-rebuild prod-shell prod-db-shell dev-up dev-up-fg dev-down dev-restart dev-logs dev-rebuild dev-shell dev-db-shell both-up both-up-fg both-down both-logs network-create status dev-clean-pgdata clean-dev clean-prod
 
 # Default target
 help:
@@ -7,8 +7,9 @@ help:
 	@echo "Network Setup:"
 	@echo "  make network-create    - Create the webui-net network (run once)"
 	@echo ""
-	@echo "Production Environment (ports 3030 WebUI, 11434 Ollama, 5438 DB):"
-	@echo "  make prod-up          - Start production containers"
+	@echo "Production Environment (ports 3030, 11434, 5438):"
+	@echo "  make prod-up          - Start production containers (detached)"
+	@echo "  make prod-up-fg       - Start production containers (foreground with logs)"
 	@echo "  make prod-down        - Stop production containers"
 	@echo "  make prod-restart     - Restart production containers"
 	@echo "  make prod-rebuild     - Rebuild and restart production"
@@ -16,8 +17,9 @@ help:
 	@echo "  make prod-shell       - Shell into production open-webui container"
 	@echo "  make prod-db-shell    - PostgreSQL shell for production database"
 	@echo ""
-	@echo "Development Environment (ports 3031 WebUI, 11435 Ollama, 5439 DB):"
-	@echo "  make dev-up           - Start development containers"
+	@echo "Development Environment (ports 3031, 11435, 5439):"
+	@echo "  make dev-up           - Start development containers (detached)"
+	@echo "  make dev-up-fg        - Start development containers (foreground with logs)"
 	@echo "  make dev-down         - Stop development containers"
 	@echo "  make dev-restart      - Restart development containers"
 	@echo "  make dev-rebuild      - Rebuild and restart development"
@@ -26,7 +28,8 @@ help:
 	@echo "  make dev-db-shell     - PostgreSQL shell for development database"
 	@echo ""
 	@echo "Both Environments:"
-	@echo "  make both-up          - Start both dev and prod"
+	@echo "  make both-up          - Start both dev and prod (detached)"
+	@echo "  make both-up-fg       - Start both dev and prod (foreground with logs)"
 	@echo "  make both-down        - Stop both dev and prod"
 	@echo "  make both-logs        - View logs from both environments"
 	@echo "  make status           - Show status of all containers"
@@ -34,6 +37,8 @@ help:
 	@echo "Cleanup (CAUTION - DELETES DATA):"
 	@echo "  make clean-dev        - Remove dev volumes (deletes dev data)"
 	@echo "  make clean-prod       - Remove prod volumes (deletes prod data)"
+	@echo "  make dev-clean-pgdata     - Remove PostgreSQL data directories"
+	
 
 # Network setup
 network-create:
@@ -45,6 +50,10 @@ prod-up:
 	@echo "Starting production environment..."
 	docker compose --profile prod up -d
 
+prod-up-fg:
+	@echo "Starting production environment (foreground with logs)..."
+	docker compose --profile prod up
+
 prod-down:
 	@echo "Stopping production environment..."
 	docker compose --profile prod down
@@ -52,7 +61,6 @@ prod-down:
 prod-restart:
 	@echo "Restarting production environment..."
 	docker compose --profile prod down && docker compose --profile prod up -d
-
 prod-rebuild:
 	@echo "Rebuilding and restarting production environment..."
 	docker compose --profile prod up -d --build
@@ -74,13 +82,17 @@ dev-up:
 	@echo "Starting development environment..."
 	docker compose --profile dev up -d
 
+dev-up-fg:
+	@echo "Starting development environment (foreground with logs)..."
+	docker compose --profile dev up
+
 dev-down:
 	@echo "Stopping development environment..."
 	docker compose --profile dev down
 
 dev-restart:
 	@echo "Restarting development environment..."
-	docker compose --profile dev restart
+	docker compose --profile dev down && docker compose --profile dev up -d
 
 dev-rebuild:
 	@echo "Rebuilding and restarting development environment..."
@@ -102,6 +114,10 @@ dev-db-shell:
 both-up:
 	@echo "Starting both development and production environments..."
 	docker compose --profile dev --profile prod up -d
+
+both-up-fg:
+	@echo "Starting both development and production environments (foreground with logs)..."
+	docker compose --profile dev --profile prod up
 
 both-down:
 	@echo "Stopping both environments..."
@@ -138,3 +154,14 @@ clean-prod:
 	else \
 		echo "Cancelled"; \
 	fi
+
+dev-clean-pgdata:
+	@echo "WARNING: This will delete PostgreSQL data directories for development!"
+	@bash -c 'read -p "Are you sure? [y/N] " -n 1 -r REPLY; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		docker volume rm open-webui_pgdata-dev; \
+		echo "Development PostgreSQL data directories deleted"; \
+	else \
+		echo "Cancelled"; \
+	fi'

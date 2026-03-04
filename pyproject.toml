@@ -10,6 +10,7 @@ dependencies = [
     "psycopg2-binary>=2.9.10",
     "pyarrow>=21.0.0",
     "pydantic>=2.9.2",
+    "pyjwt>=2.11.0",
     "qwen-agent[gui,mcp,rag]>=0.0.29",
     "requests>=2.32.5",
     "sqlalchemy>=2.0.43",

@@ -25,17 +25,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.openwebui
+      target: prod
     container_name: open-webui-prod
     ports:
       - "3030:8080"
     volumes:
       - open-webui-prod:/app/backend/data
-      # Mount configuration files for hot-reload on restart
-      - ./postgres-tool-export.json:/app/postgres-tool-export.json:ro
-      - ./models-export.json:/app/models-export.json:ro
-      - ./config-export-prod.json:/app/config-export.json:ro
-      - ./import_tools.py:/app/import_tools.py:ro
-      - ./start_with_tools.sh:/app/start_with_tools.sh:ro
       - ./hf_models:/app/backend/hf_models:ro
     restart: unless-stopped
     depends_on:
@@ -103,18 +98,21 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.openwebui
+      target: dev
     container_name: open-webui-dev
     ports:
       - "3031:8080"
     volumes:
       - open-webui-dev:/app/backend/data
       # Mount configuration files for hot-reload on restart
-      - ./postgres-tool-export.json:/app/postgres-tool-export.json:ro
-      - ./models-export.json:/app/models-export.json:ro
-      - ./config-export-dev.json:/app/config-export.json:ro
+      - ./exports/postgres-tool-export.json:/app/exports/postgres-tool-export.json:ro
+      - ./exports/models-export-dev.json:/app/exports/models-export.json:ro
+      - ./exports/config-export-dev.json:/app/exports/config-export.json:ro
       - ./import_tools.py:/app/import_tools.py:ro
       - ./start_with_tools.sh:/app/start_with_tools.sh:ro
+      - ./system_prompt.md:/app/system_prompt.md:ro
       - ./hf_models:/app/backend/hf_models:ro
+      - ./open-webui/backend/open_webui/config.py:/app/backend/open_webui/config.py
     restart: unless-stopped
     depends_on:
       - db-dev
@@ -171,4 +169,4 @@ volumes:
 
 networks:
   webui-net:
-    external: true 
+    external: true

@@ -2,7 +2,7 @@
 set -e
 
 echo "🚀 Starting Open WebUI with automatic tool import..."
-
+echo "Running in $ENV" 
 # Start Open WebUI in the background
 echo "📦 Starting Open WebUI backend..."
 /app/backend/start.sh &
@@ -47,7 +47,7 @@ echo "✅ Ollama service is ready!"
 
 # Import tools, models, and config if the export files exist
 echo "🔧 Importing tools, models, and config from export files..."
-python3 /app/import_tools.py /app/postgres-tool-export.json /app/models-export.json /app/config-export.json /app/backend/data/webui.db
+python3 /app/import_tools.py /app/exports/postgres-tool-export.json /app/exports/models-export.json /app/exports/config-export.json /app/backend/data/webui.db
 
 echo "✅ Open WebUI startup complete!"
 
