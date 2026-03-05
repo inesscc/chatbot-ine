@@ -1,4 +1,4 @@
-.PHONY: help prod-up prod-up-fg prod-down prod-clean-pgdata prod-restart prod-logs prod-rebuild prod-shell prod-db-shell dev-up dev-up-fg dev-down dev-restart dev-logs dev-rebuild dev-shell dev-db-shell both-up both-up-fg both-down both-logs network-create status dev-clean-pgdata clean-dev clean-prod
+.PHONY: help prod-up prod-up-fg prod-down prod-clean-pgdata prod-restart prod-logs prod-rebuild prod-shell prod-db-shell prod-ollama-shell dev-up dev-up-fg dev-down dev-restart dev-logs dev-rebuild dev-shell dev-db-shell both-up both-up-fg both-down both-logs network-create status dev-clean-pgdata clean-dev clean-prod
 
 # Default target
 help:
@@ -16,6 +16,7 @@ help:
 	@echo "  make prod-logs        - View production logs (follow)"
 	@echo "  make prod-shell       - Shell into production open-webui container"
 	@echo "  make prod-db-shell    - PostgreSQL shell for production database"
+	@echo "  make prod-ollama-shell - Shell into production ollama container"
 	@echo ""
 	@echo "Development Environment (ports 3031, 11435, 5439):"
 	@echo "  make dev-up           - Start development containers (detached)"
@@ -77,6 +78,10 @@ prod-shell:
 prod-db-shell:
 	@echo "Opening PostgreSQL shell for production database..."
 	docker exec -it toy-postgres-prod psql -U toyuser -d toydb
+
+prod-ollama-shell:
+	@echo "Opening shell in production ollama container..."
+	docker exec -it ollama-prod /bin/bash
 prod-clean-pgdata:
 	@echo "WARNING: This will delete PostgreSQL data directories for production!"
 	@bash -c 'read -p "Are you sure? [y/N] " -n 1 -r REPLY; \
