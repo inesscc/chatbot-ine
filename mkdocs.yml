@@ -2,6 +2,7 @@ site_name: Chatbot Indicadores INE
 site_description: Guía para ejecutar el chatbot de estadísticas ENE/ENUSC localmente
 docs_dir: docs
 site_dir: site
+remote_name: github 
 
 theme:
   name: material
