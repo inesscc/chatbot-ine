@@ -282,7 +282,7 @@ Este paso descarga todas las imágenes necesarias y construye los contenedores. 
 #### macOS
 
 ```bash
-make dev-up
+make prod-up
 ```
 
 ---
@@ -290,7 +290,7 @@ make dev-up
 #### Windows
 
 ```powershell
-docker compose --profile dev up -d
+docker compose --profile prod up -d
 ```
 
 ---
@@ -320,9 +320,9 @@ docker ps
 ---
 
 Deberías ver tres contenedores con estado **"Up"** (o "running"):
-- `open-webui-dev`
-- `toy-postgres-dev`
-- `ollama-dev`
+- `open-webui-prod`
+- `toy-postgres-prod`
+- `ollama-prod`
 
 Si aparecen los tres, ¡todo está funcionando!
 
@@ -337,7 +337,7 @@ Puedes ver el progreso con:
 #### macOS
 
 ```bash
-make dev-logs
+make prod-logs
 ```
 
 ---
@@ -345,7 +345,7 @@ make dev-logs
 #### Windows
 
 ```powershell
-docker compose --profile dev logs -f
+docker compose --profile prod logs -f
 ```
 
 ---
@@ -362,7 +362,7 @@ Para detener los logs: presiona `Ctrl + C` (esto **no** apaga el proyecto, solo 
 
 Abre tu navegador (Chrome, Firefox, Safari, etc.) y ve a:
 
-**http://localhost:3031**
+**http://localhost:3030**
 
 ### 6.2 Crear tu cuenta
 
@@ -426,7 +426,7 @@ Cuando termines de trabajar, es buena práctica apagar los contenedores para lib
 #### macOS
 
 ```bash
-make dev-down
+make prod-down
 ```
 
 ---
@@ -434,7 +434,7 @@ make dev-down
 #### Windows
 
 ```powershell
-docker compose --profile dev down
+docker compose --profile prod down
 ```
 
 ---
@@ -459,10 +459,10 @@ Una vez que ya hiciste la primera instalación, el uso diario es muy simple:
 cd ~/proyectos/chatbot/open-webui
 
 # 3. Inicia el proyecto
-make dev-up
+make prod-up
 
 # 4. Espera ~1 minuto y abre en el navegador
-# http://localhost:3031
+# http://localhost:3030
 ```
 
 ---
@@ -475,10 +475,10 @@ make dev-up
 cd C:\Users\tu_nombre\proyectos\chatbot\open-webui
 
 # 3. Inicia el proyecto
-docker compose --profile dev up -d
+docker compose --profile prod up -d
 
 # 4. Espera ~1 minuto y abre en el navegador
-# http://localhost:3031
+# http://localhost:3030
 ```
 
 ---
@@ -490,7 +490,7 @@ docker compose --profile dev up -d
 #### macOS
 
 ```bash
-make dev-down
+make prod-down
 ```
 
 ---
@@ -498,7 +498,7 @@ make dev-down
 #### Windows
 
 ```powershell
-docker compose --profile dev down
+docker compose --profile prod down
 ```
 
 ---
@@ -507,17 +507,17 @@ docker compose --profile dev down
 
 | Acción | macOS | Windows |
 |--------|-------|---------|
-| Iniciar el proyecto | `make dev-up` | `docker compose --profile dev up -d` |
-| Detener el proyecto | `make dev-down` | `docker compose --profile dev down` |
+| Iniciar el proyecto | `make prod-up` | `docker compose --profile prod up -d` |
+| Detener el proyecto | `make prod-down` | `docker compose --profile prod down` |
 | Ver estado | `make status` | `docker ps` |
-| Ver logs en vivo | `make dev-logs` | `docker compose --profile dev logs -f` |
-| Reiniciar | `make dev-restart` | `docker compose --profile dev down && docker compose --profile dev up -d` |
+| Ver logs en vivo | `make prod-logs` | `docker compose --profile prod logs -f` |
+| Reiniciar | `make prod-restart` | `docker compose --profile prod down && docker compose --profile prod up -d` |
 
 ---
 
 ## 9. Solución de problemas
 
-### "No puedo abrir http://localhost:3031"
+### "No puedo abrir http://localhost:3030"
 
 **Causas posibles y soluciones:**
 
@@ -527,7 +527,7 @@ docker compose --profile dev down
 
 3. **El chatbot aún está iniciando:** Espera 1-2 minutos más después de iniciar los contenedores.
 
-4. **Otro programa usa el puerto 3031:** En macOS, ejecuta `lsof -i :3031` para ver qué programa lo está usando. En Windows, ejecuta `netstat -ano | findstr :3031`.
+4. **Otro programa usa el puerto 3030:** En macOS, ejecuta `lsof -i :3030` para ver qué programa lo está usando. En Windows, ejecuta `netstat -ano | findstr :3030`.
 
 ---
 
@@ -565,8 +565,8 @@ Docker Desktop necesita al menos 4 GB de RAM asignados. Para cambiar esto:
 
 Revisa los logs para ver el error:
 
-- macOS: `make dev-logs`
-- Windows: `docker compose --profile dev logs -f`
+- macOS: `make prod-logs`
+- Windows: `docker compose --profile prod logs -f`
 
 Busca líneas con `ERROR` o `error`. Los errores más comunes son:
 
@@ -586,8 +586,8 @@ Si algo salió muy mal y quieres borrar todo y volver a empezar:
 #### macOS
 
 ```bash
-make clean-dev
-make dev-up
+make clean-prod
+make prod-up
 ```
 
 ---
@@ -595,8 +595,8 @@ make dev-up
 #### Windows
 
 ```powershell
-docker compose --profile dev down -v
-docker compose --profile dev up -d
+docker compose --profile prod down -v
+docker compose --profile prod up -d
 ```
 
 ---

@@ -864,11 +864,11 @@ Si responde <code>Error: network with name webui-net already exists</code>, no h
 <div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">macOS</label><label for="__tabbed_3_2">Windows</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>make<span class="w"> </span>dev-up
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>make<span class="w"> </span>prod-up
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">docker</span> <span class="n">compose</span> <span class="p">-</span><span class="n">-profile</span> <span class="n">dev</span> <span class="n">up</span> <span class="n">-d</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">docker</span> <span class="n">compose</span> <span class="p">-</span><span class="n">-profile</span> <span class="n">prod</span> <span class="n">up</span> <span class="n">-d</span>
 </code></pre></div>
 </div>
 </div>
@@ -897,15 +897,15 @@ Si responde <code>Error: network with name webui-net already exists</code>, no h
 </thead>
 <tbody>
 <tr>
-<td><code>open-webui-dev</code></td>
+<td><code>open-webui-prod</code></td>
 <td>La interfaz web del chatbot</td>
 </tr>
 <tr>
-<td><code>toy-postgres-dev</code></td>
+<td><code>toy-postgres-prod</code></td>
 <td>La base de datos con los datos del INE</td>
 </tr>
 <tr>
-<td><code>ollama-dev</code></td>
+<td><code>ollama-prod</code></td>
 <td>Servicio de modelos de lenguaje</td>
 </tr>
 </tbody>
@@ -920,11 +920,11 @@ Si responde <code>Error: network with name webui-net already exists</code>, no h
 <div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">macOS</label><label for="__tabbed_5_2">Windows</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>make<span class="w"> </span>dev-logs
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>make<span class="w"> </span>prod-logs
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">docker</span> <span class="n">compose</span> <span class="p">-</span><span class="n">-profile</span> <span class="n">dev</span> <span class="n">logs</span> <span class="o">-f</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">docker</span> <span class="n">compose</span> <span class="p">-</span><span class="n">-profile</span> <span class="n">prod</span> <span class="n">logs</span> <span class="o">-f</span>
 </code></pre></div>
 </div>
 </div>
@@ -935,7 +935,7 @@ Si responde <code>Error: network with name webui-net already exists</code>, no h
 <p>Para dejar de ver los logs presiona <code>Ctrl + C</code>. <strong>Esto no apaga el proyecto</strong>, solo deja de mostrar los mensajes.</p>
 <h2 id="46-abrir-el-chatbot">4.6 Abrir el chatbot<a class="headerlink" href="#46-abrir-el-chatbot" title="Permanent link">&para;</a></h2>
 <p>Abre tu navegador y ve a:</p>
-<p><strong><a href="http://localhost:3031">http://localhost:3031</a></strong></p>
+<p><strong><a href="http://localhost:3030">http://localhost:3030</a></strong></p>
 <p>La primera vez verás una pantalla de registro. Sigue las instrucciones en <a href="../uso/">Usar el chatbot</a>.</p>
 
 
